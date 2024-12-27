@@ -1,0 +1,10 @@
+*
+{
+    text-rendering:optimizeSpeed!important;
+    image-rendering:pixelated;
+}
+
+#c {
+    image-rendering:pixelated;
+    min-height: 100%;
+}
