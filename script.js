@@ -111,6 +111,16 @@ function setTool(i)
         button.onclick = function() { setBrushSize( j ) };
         document.body.appendChild(button);
     }
+
+    let button = document.createElement("button");
+    button.innerHTML = "undo";
+    button.onclick = function() { undo() };
+    document.body.appendChild(button);
+
+    button = document.createElement("button");
+    button.innerHTML = "redo";
+    button.onclick = function() { redo() };
+    document.body.appendChild(button);
 }
 
 var g_BrushSize = 2;
@@ -127,6 +137,54 @@ var bucketAnimation = {
     imageData: 0,
     iterations: 0,
     iterationSkipAmt: 1,
+}
+var g_undoHistory = [];
+var g_undoMax = 255;
+var g_undoPosition = 0;
+
+ctx_b.fillStyle = "#FFFFFF";
+ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
+g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
+
+function undo()
+{
+    g_undoPosition += 1;
+    if (g_undoPosition >= g_undoHistory.length)
+    {
+        console.log("test")
+        g_undoPosition -= 1;
+    }
+
+    console.log(g_undoHistory.length, g_undoPosition );
+    ctx_b.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
+    mainDraw();
+}
+
+function redo()
+{
+    g_undoPosition -= 1;
+    if (g_undoPosition < 0)
+        g_undoPosition = 0;
+
+    ctx_b.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
+    mainDraw();
+}
+
+function pushUndoHistory()
+{
+    if (g_undoHistory.length < g_undoMax)
+    {
+        g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
+    }
+
+    if (g_undoPosition != 0)
+    {
+        for( var i = 0; i < g_undoPosition; i++)
+        {
+            g_undoHistory.pop();
+        }
+        g_undoPosition = 0;
+    }
 }
 
 function drawLine(start,end,brushSize,spacing)
@@ -266,6 +324,8 @@ function FFAnimation()
     
     if (bucketAnimation.ops.length > 0) 
         window.requestAnimationFrame(FFAnimation);
+    else 
+        pushUndoHistory();
 }
 
 // normal flood fill. only kept for reference
@@ -300,7 +360,8 @@ function drawStart(e)
     if (e.button != undefined)
     {
         g_currentColor = [ g_MainColor, g_MainColor, g_SubColor ][ e.button % 3 ]
-    }
+    } 
+    else g_currentColor = g_MainColor;
 
     let x = e.clientX - canvas.offsetLeft;
     let y = e.clientY - canvas.offsetTop;
@@ -343,7 +404,6 @@ function drawMove(e)
     if (drawing)
     {
         drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_BrushSize/2);
-        lastCoords = Vec2(x, y);
     }
     lastCoords = Vec2(x, y);
     mainDraw();
@@ -358,19 +418,20 @@ function drawEnd(e)
 
     if (e.touches)
     {
+        // we just don't have the final coords on touch end, so stop immediately
         drawing = false;
-        mainDraw();
-        return;
-        
-        x = e.touches[0].clientX - canvas.offsetLeft;
-        y = e.touches[0].clientY - canvas.offsetTop;
     }
 
 	if (drawing)
+    {
         drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_BrushSize/2);
-    
+        pushUndoHistory();
+    }
+
     drawing = false;
     mainDraw();
+
+
 }
 
 canvas.addEventListener("touchstart", e => {
