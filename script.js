@@ -72,36 +72,6 @@ const Vec2 = function(x,y)
 }
 
 
-/*
-canvas.addEventListener("mousedown", e=> {
-    if (lastCoords.x != -1)
-    {
-            // ctx.beginPath();
-            let size = 5;
-        let pos = Vec2(lastCoords.x, lastCoords.y);
-        let dist = distance( Vec2(e.offsetX, e.offsetY), Vec2(lastCoords.x, lastCoords.y) );
-        let step = Vec2( e.offsetX - lastCoords.x, e.offsetY - lastCoords.y )
-                                .normalize()
-                                .scale( spacing );
-        console.log( dist );
-        // stamp every N units along line
-        for( var i = 0; i < Math.floor(dist / spacing); i++)
-        {
-            console.log(pos.toString());
-
-            ctx.fillRect( pos.x - size / 2, pos.y - size/2, size, size );
-            pos.x += step.x;
-            pos.y += step.y;
-        }
-        
-        lastCoords = { x:-1, y:-1 };
-    }
-    
-    else
-        lastCoords = { x: e.offsetX, y: e.offsetY };
-});
-*/
-
 function mainDraw()
 {
     ctx.lineWidth = 1;
@@ -144,9 +114,9 @@ function setTool(i)
 }
 
 var g_BrushSize = 2;
-var g_currentColor = 0;
 var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(255, 255, 255);
+var g_currentColor = g_MainColor;
 var g_currentTool = 0;
 var bucketAnimation = {
     srcColor: 0,
@@ -326,9 +296,11 @@ function executeFloodFill(x, y, color)
 function drawStart(e)
 {
     e.preventDefault();
-    if (e.button)
+
+    if (e.button != undefined)
+    {
         g_currentColor = [ g_MainColor, g_MainColor, g_SubColor ][ e.button % 3 ]
-    
+    }
 
     let x = e.clientX - canvas.offsetLeft;
     let y = e.clientY - canvas.offsetTop;
@@ -339,7 +311,6 @@ function drawStart(e)
         y = e.touches[0].clientY - canvas.offsetTop;
     }
 
-    console.log("drawstart", x, y);
     ctx_b.fillStyle = g_currentColor.toString();
 	
     lastCoords.x = x;
