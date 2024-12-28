@@ -647,7 +647,8 @@ window.addEventListener('keydown', (key) =>
             action.key == keyName &&
             action.altKey == key.altKey &&
             action.ctrlKey == key.ctrlKey &&
-            action.shiftKey == key.shiftKey)
+            action.shiftKey == key.shiftKey &&
+            !g_keyStates.get(keyName).state)
         {
             let args = [];
             if (action.args)
@@ -682,7 +683,7 @@ window.addEventListener('keyup', (key) =>
     {
         let action = g_actionKeys[actionList[i]];
 
-        if ((!action.event || action.event == "up") &&
+        if ((action.event && action.event == "up") &&
             action.key == keyName &&
             action.altKey == key.altKey &&
             action.ctrlKey == key.ctrlKey &&
