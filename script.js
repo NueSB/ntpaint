@@ -343,10 +343,11 @@ function pushUndoHistory()
         g_undoPosition = 0;
     }
 
-    if (g_undoHistory.length < g_undoMax)
+    if (g_undoHistory.length >= g_undoMax)
     {
-        g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
+        g_undoHistory.shift();
     }
+    g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
 }
 
 function drawLine(start,end,brushSize,spacing)

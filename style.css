@@ -43,6 +43,7 @@ body {
 }
 
 .overlaychar-container {
+    pointer-events:none;
     display: flex;
     justify-content: center;
     position: relative;
