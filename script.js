@@ -305,7 +305,15 @@ var g_actionKeys = {
         shiftKey: false,
         altKey: false,
         func: exportCopy,
-    }
+    },
+    save: {
+        key: "S",
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        func: exportCopy,
+        args: [true]
+    },
 }
 var g_lastDrawTimestamp = 0;
 var g_isLoaded = false;
@@ -683,10 +691,28 @@ function drawEnd(e)
         h: Math.abs(lastCoords.y - y) } );
 }
 
-function exportCopy()
+function exportCopy(save)
 {
-    console.log("test");
     backbuffer.toBlob((blob) => {
+        if (save)
+        {
+            const a = document.createElement('a');
+            let url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = "untitled";
+            const clickHandler = () => {
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                    removeEventListener('click', clickHandler);    
+                }, 150);
+            };
+
+            a.addEventListener('click', clickHandler, false);
+            a.click();
+
+            return;
+        }
+
         navigator.clipboard.write([
             new ClipboardItem({ "image/png": blob })
         ]);
