@@ -225,6 +225,22 @@ var g_actionKeys = {
         altKey: false,
         func: setTool,
         args: [2]
+    },
+    drawAltStart: {
+        key: " ",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        func: drawStart,
+        event: "down",
+    },    
+    drawAltEnd: {
+        key: " ",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        func: drawEnd,
+        event: "up",
     }
 }
 
@@ -478,43 +494,48 @@ function eyedrop(x,y, mouseIndex = 0)
 
 function drawStart(e)
 {
-    e.preventDefault();
-
-    let x = e.clientX - canvas.offsetLeft;
-    let y = e.clientY - canvas.offsetTop;
+    let x = lastCoords.x, y = lastCoords.y, mouseIndex = 0;
     
-    if (e.touches)
+    if (e)
     {
-        x = e.touches[0].clientX - canvas.offsetLeft;
-        y = e.touches[0].clientY - canvas.offsetTop;
-    }
-    
-
-    // MMB shorthand eyedrop
-    if (e.button != undefined)
-    {
-        switch (e.button)
+        e.preventDefault();
+        
+        x = e.clientX - canvas.offsetLeft;
+        y = e.clientY - canvas.offsetTop;
+        
+        if (e.touches)
         {
-            case 0:
-                g_currentColor = g_MainColor;
-            break;
-            
-            case 1:
-                eyedrop(x,y, e.button);
-                return;
-            break;
-
-            case 2:
-                g_currentColor = g_SubColor;
-            break;
-
-            default:
-                g_currentColor = g_MainColor;
-            break;
+            x = e.touches[0].clientX - canvas.offsetLeft;
+            y = e.touches[0].clientY - canvas.offsetTop;
         }
-    } 
-    else g_currentColor = g_MainColor;
 
+        // MMB shorthand eyedrop
+        if (e.button != undefined)
+        {
+            switch (e.button)
+            {
+                case 0:
+                    g_currentColor = g_MainColor;
+                break;
+                
+                case 1:
+                    eyedrop(x,y, e.button);
+                    return;
+                break;
+
+                case 2:
+                    g_currentColor = g_SubColor;
+                break;
+
+                default:
+                    g_currentColor = g_MainColor;
+                break;
+            }
+
+            mouseIndex = e.button;
+        } 
+        else g_currentColor = g_MainColor;
+    }
 
     ctx_b.fillStyle = g_currentColor.toString();
 	
@@ -533,7 +554,7 @@ function drawStart(e)
         break;
         
         case 2:
-            eyedrop(x,y, e.button);
+            eyedrop(x,y, mouseIndex);
         break;
     }
 }
@@ -560,16 +581,22 @@ function drawMove(e)
 
 function drawEnd(e)
 {
-    e.preventDefault();
+    let x = lastCoords.x, y = lastCoords.y;
 
-    let x = e.clientX - canvas.offsetLeft;
-    let y = e.clientY - canvas.offsetTop;
-
-    if (e.touches)
+    if (e)
     {
-        // we just don't have the final coords on touch end, so stop immediately
-        drawing = false;
+        e.preventDefault();
+
+        x = e.clientX - canvas.offsetLeft;
+        y = e.clientY - canvas.offsetTop;
+    
+        if (e.touches)
+        {
+            // we just don't have the final coords on touch end, so stop immediately
+            drawing = false;
+        }
     }
+
 
 	if (drawing)
     {
@@ -581,32 +608,21 @@ function drawEnd(e)
     mainDraw();
 }
 
-canvas.addEventListener("touchstart", e => {
+canvas.addEventListener("touchstart", e => { drawStart(e); })
 
-    drawStart(e);
-})
+canvas.addEventListener("touchmove", e => { drawMove(e); });
 
-canvas.addEventListener("touchmove", e => {
-
-    drawMove(e); 
-});
-
-canvas.addEventListener("touchend", e => {
-
-    drawEnd(e);
-});
+canvas.addEventListener("touchend", e => { drawEnd(e); });
 
 canvas.addEventListener("touchcancel", e => drawEnd(e))
 
-
-canvas.addEventListener("mousedown", e => drawStart(e));
+canvas.addEventListener("mousedown", e => drawStart(e));        
 
 canvas.addEventListener("mousemove", e => drawMove(e) );
 
 window.addEventListener("mouseup", e => { drawEnd(e) });
 
-window.addEventListener( "wheel", e=>
-{
+window.addEventListener( "wheel", e=> {
     g_BrushSize = Math.max(Math.min( g_BrushSize - Math.sign(e.deltaY) * 4, 128), 1);
     mainDraw();
 });
@@ -631,7 +647,8 @@ window.addEventListener('keydown', (key) =>
     {
         let action = g_actionKeys[actionList[i]];
 
-        if (action.key == keyName &&
+        if ((!action.event || action.event == "down") &&
+            action.key == keyName &&
             action.altKey == key.altKey &&
             action.ctrlKey == key.ctrlKey &&
             action.shiftKey == key.shiftKey)
@@ -644,7 +661,13 @@ window.addEventListener('keydown', (key) =>
     }
     
     key.preventDefault();
+    
+    if (keyName == "  " && !g_keyStates.get(keyName).state)
+    {
+        drawStart();
+    }
     g_keyStates.get(keyName).state = true;
+
 });
 
 window.addEventListener('keyup', (key) =>
@@ -657,8 +680,31 @@ window.addEventListener('keyup', (key) =>
     
     if (!g_keyStates.get(keyName).state) 
         g_keyStates.get(keyName).downTimestamp = Date.now();
+
+    let actionList = Object.keys(g_actionKeys);
+    for( let i = 0; i < actionList.length; i++)
+    {
+        let action = g_actionKeys[actionList[i]];
+
+        if ((!action.event || action.event == "up") &&
+            action.key == keyName &&
+            action.altKey == key.altKey &&
+            action.ctrlKey == key.ctrlKey &&
+            action.shiftKey == key.shiftKey)
+        {
+            let args = [];
+            if (action.args)
+                args = action.args;
+            action.func(...args);
+        }
+    }
     
     g_keyStates.get(keyName).upTimestamp = Date.now();
     g_keyStates.get(keyName).state = false;
+
+    if (keyName == " " && drawing)
+    {
+        drawEnd();
+    }
 });
     
