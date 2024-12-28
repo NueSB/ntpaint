@@ -287,20 +287,21 @@ var FPS = 0, err = calcFPS({count: 120, callback: fps => {
     g_isLoaded = true;
     ctx.drawImage(backbuffer, 0, 0)
 }});
-if (err) FPS = 30; 
 
-/*
-mainLoop();
-
-function mainLoop()
+if (err)
 {
-    g_keyStates.forEach(key => {
-        key.lastState = key.state;
-    });
-
-    setTimeout(mainLoop, 16);
+    FPS = 30;
+    g_isLoaded = true; 
+    ctx.drawImage(backbuffer, 0, 0);
 }
-*/
+//
+setInterval( calcFPS ({count: 120, callback: fps => {
+    if (fps > FPS)
+    {
+        FPS = fps;
+        console.log("higher fps detected, uprezzing -> " + fps)
+    }
+}}), 1000);
 
 function swapColors()
 {
