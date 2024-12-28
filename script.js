@@ -452,30 +452,69 @@ function executeFloodFill(x, y, color)
     console.log(`getting data @ ${x},${y}: ${JSON.stringify( bucketAnimation.srcColor)}`);
     //document.querySelector('#filltarget').style.backgroundColor = `rgba(${srcColor.r}, ${srcColor.g}, ${srcColor.b}, 255)`;
 
-
     bucketAnimation.ops = [ {x: x, y: y} ];
 
     FFAnimation();
+}
+
+function eyedrop(x,y, mouseIndex = 0)
+{
+    let pixel = x*4 + y*backbuffer.width*4;
+    let data = ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height).data;
+
+    let srcColor = new Color(
+        data[ pixel ],
+        data[ pixel + 1 ],
+        data[ pixel + 2 ],
+        255
+    );
+    console.log(pixel);
+    console.log(data);
+    console.log(srcColor);
+
+    let index =  [ 0, 0, 1 ][ mouseIndex % 3 ];
+    setColor(index, srcColor);
 }
 
 function drawStart(e)
 {
     e.preventDefault();
 
-    if (e.button != undefined)
-    {
-        g_currentColor = [ g_MainColor, g_MainColor, g_SubColor ][ e.button % 3 ]
-    } 
-    else g_currentColor = g_MainColor;
-
     let x = e.clientX - canvas.offsetLeft;
     let y = e.clientY - canvas.offsetTop;
-
+    
     if (e.touches)
     {
         x = e.touches[0].clientX - canvas.offsetLeft;
         y = e.touches[0].clientY - canvas.offsetTop;
     }
+    
+
+    // MMB shorthand eyedrop
+    if (e.button != undefined)
+    {
+        switch (e.button)
+        {
+            case 0:
+                g_currentColor = g_MainColor;
+            break;
+            
+            case 1:
+                eyedrop(x,y, e.button);
+                return;
+            break;
+
+            case 2:
+                g_currentColor = g_SubColor;
+            break;
+
+            default:
+                g_currentColor = g_MainColor;
+            break;
+        }
+    } 
+    else g_currentColor = g_MainColor;
+
 
     ctx_b.fillStyle = g_currentColor.toString();
 	
@@ -494,21 +533,7 @@ function drawStart(e)
         break;
         
         case 2:
-            let pixel = x*4 + y*backbuffer.width*4;
-            let data = ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height).data;
-
-            let srcColor = new Color(
-                data[ pixel ],
-                data[ pixel + 1 ],
-                data[ pixel + 2 ],
-                255
-            );
-            console.log(pixel);
-            console.log(data);
-            console.log(srcColor);
-
-            let index = (e.button != undefined) ? [ 0, 0, 1 ][ e.button % 3 ] : 0;
-            setColor(index, srcColor);
+            eyedrop(x,y, e.button);
         break;
     }
 }
