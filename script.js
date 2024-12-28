@@ -276,7 +276,6 @@ function undo()
         g_undoPosition -= 1;
     }
 
-    console.log(g_undoHistory.length, g_undoPosition );
     ctx_b.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
     mainDraw();
 }
@@ -465,7 +464,7 @@ function executeFloodFill(x, y, color)
          b:  bucketAnimation.data[ pixel + 2] };
 
     bucketAnimation.replacementColor = color;
-    console.log(`getting data @ ${x},${y}: ${JSON.stringify( bucketAnimation.srcColor)}`);
+    //console.log(`getting data @ ${x},${y}: ${JSON.stringify( bucketAnimation.srcColor)}`);
     //document.querySelector('#filltarget').style.backgroundColor = `rgba(${srcColor.r}, ${srcColor.g}, ${srcColor.b}, 255)`;
 
     bucketAnimation.ops = [ {x: x, y: y} ];
@@ -484,9 +483,6 @@ function eyedrop(x,y, mouseIndex = 0)
         data[ pixel + 2 ],
         255
     );
-    console.log(pixel);
-    console.log(data);
-    console.log(srcColor);
 
     let index =  [ 0, 0, 1 ][ mouseIndex % 3 ];
     setColor(index, srcColor);
