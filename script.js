@@ -11,8 +11,9 @@ var canvas = document.querySelector("#c"),
     uiContainer = document.querySelector(".drawcontainer"),
     uiBottomToolbar = document.querySelector(".ui-bottom-toolbar");
 
-backbuffer.width = canvas.width;
-backbuffer.height = canvas.height;
+    backbuffer.width = canvas.width;
+    backbuffer.height = canvas.height;
+
 var mainPicker = document.createElement( "input" );
     mainPicker.type = "color";
     mainPicker.onchange = function() { setColor(0, -1) };
@@ -108,6 +109,12 @@ const Vec2 = function(x,y)
 }
 
 
+let debugcanvas = document.createElement("canvas");
+debugcanvas.height = backbuffer.height;
+debugcanvas.width = backbuffer.width;
+var ctx_dbg = debugcanvas.getContext("2d");
+let debug = false;
+
 // provide a custom region to clear if needed (cursor updates, etc)
 function mainDraw(customClear)
 {
@@ -116,10 +123,11 @@ function mainDraw(customClear)
     {
         return;
     }
-
+    
     g_lastDrawTimestamp = Date.now();
 
     ctx.lineWidth = 1;
+
     if (!customClear)
     {
         ctx.clearRect(0,0, canvas.width, canvas.height);
@@ -130,6 +138,26 @@ function mainDraw(customClear)
         ctx.clearRect(customClear.x, customClear.y, customClear.w, customClear.h);
         ctx.drawImage( backbuffer, 0, 0 );
     }
+
+
+    if (debug)
+    {
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        ctx.drawImage( backbuffer, 0, 0 );
+    
+        let size = 32;
+        let j = 0;
+        for(var i = g_undoHistory.length-1; i > Math.max(0, g_undoHistory.length - Math.floor(512/32)); i--)
+        {
+            ctx_dbg.putImageData(g_undoHistory[i], 0, 0);
+            //ctx.fillRect(i * size + i, canvas.height - size, size, size);
+            ctx.drawImage(debugcanvas, j * size + j, canvas.height - size, size, size);
+            ctx.strokeStyle = (g_undoHistory.length - i) - 1 == g_undoPosition   ? "#00ff00" : "#ff0000";
+            ctx.strokeRect(j * size + j, canvas.height - size, size, size);
+            j++;
+        }
+    }
+    
     ctx.strokeStyle = "#ff0000";
     ctx.strokeRect( lastCoords.x - g_BrushSize / 2, lastCoords.y - g_BrushSize / 2, g_BrushSize, g_BrushSize );
     switch(g_currentTool)
@@ -208,7 +236,7 @@ var bucketAnimation = {
     iterationSkipAmt: 1,
 }
 var g_undoHistory = [];
-var g_undoMax = 255;
+var g_undoMax = 128;
 var g_undoPosition = 0;
 var g_keyStates = new Map();
 var g_actionKeys = {
@@ -313,9 +341,9 @@ function swapColors()
 function undo()
 {
     g_undoPosition += 1;
-    if (g_undoPosition >= g_undoHistory.length)
+    if (g_undoPosition > g_undoHistory.length-1)
     {
-        g_undoPosition -= 1;
+        g_undoPosition = g_undoHistory.length-1;
     }
 
     ctx_b.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
@@ -422,8 +450,8 @@ function FFAnimation()
             //console.log("process op")
             let point = bucketAnimation.ops.shift();
             const check = function(x,y) { 
-                var i = point.x+x > 0 && point.x+x <= canvas.width &&
-                        point.y+y > 0 && point.y+y <= canvas.height;
+                var i = point.x+x >= 0 && point.x+x < canvas.width &&
+                        point.y+y >= 0 && point.y+y < canvas.height;
                 i = i && (bucketAnimation.filledPixels[point.x+x+(point.y+y)*canvas.width] < 1);
                 //if (i) console.log(`adding! ${point.x+x},${point.y+y}!`)
                     return i;
@@ -475,11 +503,7 @@ function FFAnimation()
         }
         i++;
     }
-        //ctx_b.putImageData(bucketAnimation.imageData, 0, 0);
 
-        //console.log(bucketAnimation.ops.length);
-
-    //console.log(bucketAnimation.ops.length);
     ctx_b.putImageData(bucketAnimation.imageData, 0, 0);
     mainDraw();
     bucketAnimation.iterations = 0;
@@ -487,7 +511,7 @@ function FFAnimation()
     
     if (bucketAnimation.ops.length > 0) 
         window.requestAnimationFrame(FFAnimation);
-    else 
+    else
         pushUndoHistory();
 }
 
@@ -634,8 +658,8 @@ function drawEnd(e)
     
         if (e.touches)
         {
-            // we just don't have the final coords on touch end, so stop immediately
-            drawing = false;
+            x = lastCoords.x,
+            y = lastCoords.y;
         }
     }
 
