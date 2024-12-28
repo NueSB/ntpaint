@@ -21,6 +21,7 @@ var subPicker = document.createElement( "input" );
     subPicker.onchange = function() { setColor(1, -1) };
     document.body.appendChild(subPicker);
 
+setColor(1, Color.white);
 
 var ctx_b = backbuffer.getContext("2d");
 ctx_b.clearRect(0,0,backbuffer.width, backbuffer.height);
@@ -31,6 +32,38 @@ function distance(a,b)
   return Math.sqrt( Math.pow(b.x-a.x, 2) + Math.pow(b.y-a.y,2) );
 }
 
+function keyDown(keyName)
+{
+  if (!g_keyStates.has(keyName))
+  {
+  	g_keyStates.set(keyName, {state: false, lastState: false, downTimestamp: 0, upTimestamp: 0});
+    return false;
+  }
+	var key = g_keyStates.get(keyName);
+  return key.state;
+}
+
+function keyUp(keyName)
+{
+  if (!g_keyStates.has(keyName))
+  {
+  	g_keyStates.set(keyName, {state: false, lastState: false, downTimestamp: 0, upTimestamp: 0});
+    return false;
+  }
+	var key = g_keyStates.get(keyName);
+  return !key.state;
+}
+
+function keyPressed(keyName)
+{
+  if (!g_keyStates.has(keyName))
+  {
+  	g_keyStates.set(keyName, {state: false, lastState: false, downTimestamp: 0, upTimestamp: 0});
+    return false;
+  }
+	var key = g_keyStates.get(keyName);
+  return key.state && !key.lastState;
+}
 
 const Vec2 = function(x,y)
 {
@@ -141,10 +174,24 @@ var bucketAnimation = {
 var g_undoHistory = [];
 var g_undoMax = 255;
 var g_undoPosition = 0;
+var g_keyStates = new Map();
 
 ctx_b.fillStyle = "#FFFFFF";
 ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
 g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
+
+/*
+mainLoop();
+
+function mainLoop()
+{
+    g_keyStates.forEach(key => {
+        key.lastState = key.state;
+    });
+
+    setTimeout(mainLoop, 16);
+}
+*/
 
 function undo()
 {
@@ -430,8 +477,6 @@ function drawEnd(e)
 
     drawing = false;
     mainDraw();
-
-
 }
 
 canvas.addEventListener("touchstart", e => {
@@ -458,7 +503,53 @@ canvas.addEventListener("mousemove", e => drawMove(e) );
 
 window.addEventListener("mouseup", e => { drawEnd(e) });
 
+window.addEventListener( "wheel", e=>
+{
+    g_BrushSize = Math.max(Math.min( g_BrushSize - Math.sign(e.deltaY) * 4, 128), 1);
+    mainDraw();
+});
+
 canvas.addEventListener( "contextmenu", e=> {
     e.preventDefault();
     return false;
 })
+
+window.addEventListener('keydown', (key) =>
+{
+    const keyName = key.key.toUpperCase();
+    // alert(keyName);
+    if (!g_keyStates.has(keyName))
+        g_keyStates.set(keyName, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
+    
+    if (!g_keyStates.get(keyName).state) 
+        g_keyStates.get(keyName).downTimestamp = Date.now();
+
+    g_keyStates.get(keyName).state = true;
+
+
+    if (key.ctrlKey)
+    {
+        if (keyName == "Z")
+        {
+            if (key.shiftKey) redo();
+            else undo();
+        }
+    }
+    key.preventDefault();
+});
+
+window.addEventListener('keyup', (key) =>
+{
+    key.preventDefault();
+    const keyName = key.key.toUpperCase();
+    
+    if (!g_keyStates.has(keyName))
+        g_keyStates.set(keyName, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
+    
+    if (!g_keyStates.get(keyName).state) 
+        g_keyStates.get(keyName).downTimestamp = Date.now();
+    
+    g_keyStates.get(keyName).upTimestamp = Date.now();
+    g_keyStates.get(keyName).state = false;
+});
+    
