@@ -1,13 +1,18 @@
 <head>
     <script src="script.js" type="module" defer></script>
-    <style>
-        #c {
-            image-rendering: pixelated;
-            border: 1px solid black;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <canvas id='c' width=512 height=512></canvas>
+    <div class="drawcontainer">
+        <canvas id='c' width=512 height=512></canvas>
+        <div class="ui-side-toolbar">
+            <div class="overlaychar-container">
+                <div class="overlaychar-transform1">
+                    <img src="images/nit1.png" class="overlaychar"/>
+                </div>
 
+            </div>
+        </div>
+        <div class="ui-bottom-toolbar"></div>
+    </div>
 </body>

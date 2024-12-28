@@ -7,19 +7,21 @@ var canvas = document.querySelector("#c"),
     backbuffer = document.createElement("canvas"),
     drawing = false,
     lastCoords = { x:-1, y:-1 },
-    spacing = 3;
+    spacing = 3,
+    uiContainer = document.querySelector(".drawcontainer"),
+    uiBottomToolbar = document.querySelector(".ui-bottom-toolbar");
 
 backbuffer.width = canvas.width;
 backbuffer.height = canvas.height;
 var mainPicker = document.createElement( "input" );
     mainPicker.type = "color";
     mainPicker.onchange = function() { setColor(0, -1) };
-    document.body.appendChild(mainPicker);
+    uiBottomToolbar.appendChild(mainPicker);
 
 var subPicker = document.createElement( "input" );
     subPicker.type = "color";
     subPicker.onchange = function() { setColor(1, -1) };
-    document.body.appendChild(subPicker);
+    uiBottomToolbar.appendChild(subPicker);
 
 setColor(1, Color.white);
 
@@ -105,11 +107,21 @@ const Vec2 = function(x,y)
 }
 
 
-function mainDraw()
+// provide a custom region to clear if needed (cursor updates, etc)
+function mainDraw(customClear)
 {
+    g_lastDrawTimestamp = Date.now();
     ctx.lineWidth = 1;
-    ctx.clearRect(0,0, canvas.width, canvas.height);
-    ctx.drawImage( backbuffer, 0, 0 );
+    if (!customClear)
+    {
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        ctx.drawImage( backbuffer, 0, 0 );
+    }
+    else
+    {
+        ctx.clearRect(customClear.x, customClear.y, customClear.w, customClear.h);
+        ctx.drawImage( backbuffer, 0, 0 );
+    }
     ctx.strokeStyle = "#ff0000";
     ctx.strokeRect( lastCoords.x - g_BrushSize / 2, lastCoords.y - g_BrushSize / 2, g_BrushSize, g_BrushSize );
     switch(g_currentTool)
@@ -127,7 +139,10 @@ function mainDraw()
 function setBrushSize( i )
 {
     g_BrushSize = i;
-    mainDraw();
+    mainDraw( { x: lastCoords.x - g_BrushSize / 2, 
+                y: lastCoords.y - g_BrushSize / 2,
+                w: g_BrushSize, 
+                h: g_BrushSize } );
 }
 
 function setTool(i)
@@ -146,7 +161,7 @@ function setTool(i)
         let j = i;
         button.innerHTML = tools[i];
         button.onclick = function() { setTool( i ) };
-        document.body.appendChild(button);
+        uiBottomToolbar.appendChild(button);
     }
 
     for (let i = 1; i < 256; i += i)
@@ -155,18 +170,18 @@ function setTool(i)
         let j = i;
         button.innerHTML = i;
         button.onclick = function() { setBrushSize( j ) };
-        document.body.appendChild(button);
+        uiBottomToolbar.appendChild(button);
     }
 
     let button = document.createElement("button");
     button.innerHTML = "undo";
     button.onclick = function() { undo() };
-    document.body.appendChild(button);
+    uiBottomToolbar.appendChild(button);
 
     button = document.createElement("button");
     button.innerHTML = "redo";
     button.onclick = function() { redo() };
-    document.body.appendChild(button);
+    uiBottomToolbar.appendChild(button);
 }
 
 var g_BrushSize = 2;
@@ -241,12 +256,24 @@ var g_actionKeys = {
         altKey: false,
         func: drawEnd,
         event: "up",
+    },
+    copy: {
+        key: "C",
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        func: exportCopy,
     }
 }
+var g_lastDrawTimestamp = 0;
 
 ctx_b.fillStyle = "#FFFFFF";
 ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
 g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
+
+// https://stackoverflow.com/questions/6131051/is-it-possible-to-find-out-what-is-the-monitor-frame-rate-in-javascript
+var FPS = 0, err = calcFPS({count: 120, callback: fps => FPS = fps});
+if (err) FPS = 30; 
 
 /*
 mainLoop();
@@ -572,7 +599,10 @@ function drawMove(e)
         drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_BrushSize/2);
     }
     lastCoords = Vec2(x, y);
-    mainDraw();
+    mainDraw( { x: lastCoords.x, 
+        y: lastCoords.y,
+        w: Math.abs(lastCoords.x - x), 
+        h: Math.abs(lastCoords.y - y) } );
 }
 
 function drawEnd(e)
@@ -601,7 +631,20 @@ function drawEnd(e)
     }
 
     drawing = false;
-    mainDraw();
+    mainDraw( { x: lastCoords.x, 
+        y: lastCoords.y,
+        w: Math.abs(lastCoords.x - x), 
+        h: Math.abs(lastCoords.y - y) } );
+}
+
+function exportCopy()
+{
+    console.log("test");
+    backbuffer.toBlob((blob) => {
+        navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob })
+        ]);
+    }, "image/png");
 }
 
 canvas.addEventListener("touchstart", e => { drawStart(e); })
@@ -619,8 +662,7 @@ canvas.addEventListener("mousemove", e => drawMove(e) );
 window.addEventListener("mouseup", e => { drawEnd(e) });
 
 window.addEventListener( "wheel", e=> {
-    g_BrushSize = Math.max(Math.min( g_BrushSize - Math.sign(e.deltaY) * 4, 128), 1);
-    mainDraw();
+    setBrushSize(Math.max(Math.min( g_BrushSize - Math.sign(e.deltaY) * 4, 128), 1));
 });
 
 canvas.addEventListener( "contextmenu", e=> {
@@ -704,4 +746,3 @@ window.addEventListener('keyup', (key) =>
         drawEnd();
     }
 });
-    
