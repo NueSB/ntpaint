@@ -27,6 +27,7 @@ setColor(1, Color.white);
 
 var ctx_b = backbuffer.getContext("2d");
 ctx_b.clearRect(0,0,backbuffer.width, backbuffer.height);
+ctx.fillText("loading gimme a sec", canvas.width/2-50, canvas.height/2);
 
     
 function distance(a,b)
@@ -110,7 +111,14 @@ const Vec2 = function(x,y)
 // provide a custom region to clear if needed (cursor updates, etc)
 function mainDraw(customClear)
 {
+    // framerate lock
+    if (Date.now() - g_lastDrawTimestamp < 1000 / FPS || !g_isLoaded)
+    {
+        return;
+    }
+
     g_lastDrawTimestamp = Date.now();
+
     ctx.lineWidth = 1;
     if (!customClear)
     {
@@ -266,13 +274,19 @@ var g_actionKeys = {
     }
 }
 var g_lastDrawTimestamp = 0;
+var g_isLoaded = false;
 
 ctx_b.fillStyle = "#FFFFFF";
 ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
 g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
 
 // https://stackoverflow.com/questions/6131051/is-it-possible-to-find-out-what-is-the-monitor-frame-rate-in-javascript
-var FPS = 0, err = calcFPS({count: 120, callback: fps => FPS = fps});
+function calcFPS(a){function b(){if(f--)c(b);else{var e=3*Math.round(1E3*d/3/(performance.now()-g));"function"===typeof a.callback&&a.callback(e);console.log("Calculated: "+e+" frames per second")}}var c=window.requestAnimationFrame||window.webkitRequestAnimationFrame||window.mozRequestAnimationFrame;if(!c)return!0;a||(a={});var d=a.count||60,f=d,g=performance.now();b()}
+var FPS = 0, err = calcFPS({count: 120, callback: fps => {
+    FPS = fps; 
+    g_isLoaded = true;
+    ctx.drawImage(backbuffer, 0, 0)
+}});
 if (err) FPS = 30; 
 
 /*
