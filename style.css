@@ -53,6 +53,13 @@ body {
     transform: scale(0.5, 0.5);
 }
 
+.overlaychar-container .overlaytool {
+    position: absolute;
+    left: -30%;
+    bottom: 100%;
+    animation: toolrot 1s ease-in-out infinite;
+}
+
 .overlaychar {
     animation: charbob ease-in-out 1s infinite;
 }
@@ -71,4 +78,10 @@ body {
     0% { transform: rotateZ(-2deg); }
     50% { transform: rotateZ(3deg); }
     100% { transform: rotateZ(-2deg); }
+}
+
+@keyframes toolrot {
+    0% { transform: scale(0.65, 0.65) rotateY(12deg) }
+    50% { transform: scale(0.68, 0.68) rotateY(12deg) }
+    100% { transform: scale(0.65, 0.65) rotateY(12deg) }
 }

@@ -1,7 +1,7 @@
 <head>
     <script src="script.js" type="module" defer></script>
     <link rel="stylesheet" href="style.css">
-    <title>ntpaint v0.12</title>
+    <title>ntpaint v0.13</title>
 </head>
 <body>
     <div class="drawcontainer">
@@ -9,7 +9,10 @@
         <div class="ui-side-toolbar">
             <div class="overlaychar-container">
                 <div class="overlaychar-transform1">
-                    <img src="images/nit1.png" class="overlaychar"/>
+                    <div class="overlaychar">
+                        <img src="images/nit1.png" id="overlaychar-img"/>
+                        <img src="images/brush.png" class="overlaytool"/>    
+                    </div>
                 </div>
 
             </div>

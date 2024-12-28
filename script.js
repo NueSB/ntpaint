@@ -9,7 +9,8 @@ var canvas = document.querySelector("#c"),
     lastCoords = { x:-1, y:-1 },
     spacing = 3,
     uiContainer = document.querySelector(".drawcontainer"),
-    uiBottomToolbar = document.querySelector(".ui-bottom-toolbar");
+    uiBottomToolbar = document.querySelector(".ui-bottom-toolbar"),
+    uiToolIcon = document.querySelector(".overlaytool");
 
     backbuffer.width = canvas.width;
     backbuffer.height = canvas.height;
@@ -187,6 +188,11 @@ function setTool(i)
         g_currentTool = (g_currentTool == 0 ? 1 : 0);
     else 
         g_currentTool = i;
+
+    let sprite = "err";
+    if (g_currentTool <= 2 && g_currentTool >= 0)
+        sprite = ["brush", "bucket", "eyedropper"][g_currentTool];
+    uiToolIcon.src = "images/"+sprite+".png"; 
 }
 
 {
