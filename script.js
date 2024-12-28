@@ -198,7 +198,6 @@ function undo()
     g_undoPosition += 1;
     if (g_undoPosition >= g_undoHistory.length)
     {
-        console.log("test")
         g_undoPosition -= 1;
     }
 
@@ -219,11 +218,6 @@ function redo()
 
 function pushUndoHistory()
 {
-    if (g_undoHistory.length < g_undoMax)
-    {
-        g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
-    }
-
     if (g_undoPosition != 0)
     {
         for( var i = 0; i < g_undoPosition; i++)
@@ -231,6 +225,11 @@ function pushUndoHistory()
             g_undoHistory.pop();
         }
         g_undoPosition = 0;
+    }
+
+    if (g_undoHistory.length < g_undoMax)
+    {
+        g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
     }
 }
 
