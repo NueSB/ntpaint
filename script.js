@@ -122,8 +122,10 @@ function setBrushSize( i )
 
 function setTool(i)
 {
-    console.log(i);
-    g_currentTool = i;
+    if (i == -1) 
+        g_currentTool = (g_currentTool == 0 ? 1 : 0);
+    else 
+        g_currentTool = i;
 }
 
 {
@@ -175,6 +177,37 @@ var g_undoHistory = [];
 var g_undoMax = 255;
 var g_undoPosition = 0;
 var g_keyStates = new Map();
+var g_actionKeys = {
+    undo: {
+        key: "Z",
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        func: undo
+    },
+    redo: {
+        key: "Z",
+        ctrlKey: true,
+        shiftKey: true,
+        altKey: false,
+        func: redo
+    },
+    swap: {
+        key: "X",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        func: swapColors
+    },
+    brushket: {
+        key: "B",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        func: setTool,
+        args: [-1]
+    }
+}
 
 ctx_b.fillStyle = "#FFFFFF";
 ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
@@ -192,6 +225,13 @@ function mainLoop()
     setTimeout(mainLoop, 16);
 }
 */
+
+function swapColors()
+{
+    let tmp = g_MainColor;
+    setColor(0, g_SubColor);
+    setColor(1, tmp);
+}
 
 function undo()
 {
@@ -516,25 +556,32 @@ canvas.addEventListener( "contextmenu", e=> {
 window.addEventListener('keydown', (key) =>
 {
     const keyName = key.key.toUpperCase();
-    // alert(keyName);
+
     if (!g_keyStates.has(keyName))
         g_keyStates.set(keyName, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
     
     if (!g_keyStates.get(keyName).state) 
         g_keyStates.get(keyName).downTimestamp = Date.now();
-
-    g_keyStates.get(keyName).state = true;
-
-
-    if (key.ctrlKey)
+    
+    let actionList = Object.keys(g_actionKeys);
+    for( let i = 0; i < actionList.length; i++)
     {
-        if (keyName == "Z")
+        let action = g_actionKeys[actionList[i]];
+
+        if (action.key == keyName &&
+            action.altKey == key.altKey &&
+            action.ctrlKey == key.ctrlKey &&
+            action.shiftKey == key.shiftKey)
         {
-            if (key.shiftKey) redo();
-            else undo();
+            let args = [];
+            if (action.args)
+                args = action.args;
+            action.func(...args);
         }
     }
+    
     key.preventDefault();
+    g_keyStates.get(keyName).state = true;
 });
 
 window.addEventListener('keyup', (key) =>
