@@ -12,13 +12,13 @@ export class Color
             this.g = g;
             this.b = b;
             this.a = a;
-            this.hex = Color.toHex(r,g,b);
+            this.hex = this.toHex();
         }
     }
 
     toHex()
     {
-        return `#${ this.r.toString(16) }${ this.b.toString(16) }${ this.g.toString(16) }`;
+        return `#${ this.r.toString(16).padStart(2,'0') }${ this.g.toString(16).padStart(2,'0') }${ this.b.toString(16).padStart(2,'0') }`;
     }
 
     toString()
@@ -63,7 +63,7 @@ export class Color
 
     static toHex(r,g,b)
     {
-        return `#${ r.toString(16) }${ b.toString(16) }${ g.toString(16) }`;
+        return `#${ r.toString(16).padStart(2,'0')  }${ g.toString(16).padStart(2,'0') }${ b.toString(16).padStart(2,'0') }`;
     }
 
 

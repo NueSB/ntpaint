@@ -112,6 +112,16 @@ function mainDraw()
     ctx.drawImage( backbuffer, 0, 0 );
     ctx.strokeStyle = "#ff0000";
     ctx.strokeRect( lastCoords.x - g_BrushSize / 2, lastCoords.y - g_BrushSize / 2, g_BrushSize, g_BrushSize );
+    switch(g_currentTool)
+    {
+        case 0:
+            break;
+        case 1:
+            break;
+        case 2:
+            break;
+        
+    }
 }
 
 function setBrushSize( i )
@@ -129,11 +139,12 @@ function setTool(i)
 }
 
 {
-    for (let i = 0; i < 2; i++)
+    let tools = ["pencil", "bucket", "eyedropper"];
+    for (let i = 0; i < tools.length; i++)
     {
         let button = document.createElement("button");
         let j = i;
-        button.innerHTML = ["pencil", "bucket"][i];
+        button.innerHTML = tools[i];
         button.onclick = function() { setTool( i ) };
         document.body.appendChild(button);
     }
@@ -206,6 +217,14 @@ var g_actionKeys = {
         altKey: false,
         func: setTool,
         args: [-1]
+    },
+    eyedropper: {
+        key: "K",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        func: setTool,
+        args: [2]
     }
 }
 
@@ -417,13 +436,13 @@ function FFAnimation()
 // normal flood fill. only kept for reference
 function executeFloodFill(x, y, color)
 {
-    bucketAnimation.filledPixels = new Uint8Array(canvas.width * canvas.height);
-    bucketAnimation.imageData = ctx_b.getImageData(0, 0, canvas.width, canvas.height);
+    bucketAnimation.filledPixels = new Uint8Array(backbuffer.width * backbuffer.height);
+    bucketAnimation.imageData = ctx_b.getImageData(0, 0, backbuffer.width, backbuffer.height);
     bucketAnimation.data =  bucketAnimation.imageData.data;
     bucketAnimation.iterations = 0;
     bucketAnimation.iterationSkipAmt = 1;
 
-    let pixel = x*4 + y*canvas.width*4;
+    let pixel = x*4 + y*backbuffer.width*4;
     bucketAnimation.srcColor = {
          r:  bucketAnimation.data[ pixel ],
          g:  bucketAnimation.data[ pixel + 1 ],
@@ -463,16 +482,35 @@ function drawStart(e)
     lastCoords.x = x;
     lastCoords.y = y;
 
-    if (g_currentTool == 1)
+    switch (g_currentTool)
     {
-        console.log("execution");
-        executeFloodFill(x, y, g_currentColor);
-        return;
-    }
-    
-    drawing = true;
+        case 0:
+            drawing = true;
+            drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_BrushSize/2);
+        break;
 
-    drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_BrushSize/2);
+        case 1:
+            executeFloodFill(x, y, g_currentColor);
+        break;
+        
+        case 2:
+            let pixel = x*4 + y*backbuffer.width*4;
+            let data = ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height).data;
+
+            let srcColor = new Color(
+                data[ pixel ],
+                data[ pixel + 1 ],
+                data[ pixel + 2 ],
+                255
+            );
+            console.log(pixel);
+            console.log(data);
+            console.log(srcColor);
+
+            let index = (e.button != undefined) ? [ 0, 0, 1 ][ e.button % 3 ] : 0;
+            setColor(index, srcColor);
+        break;
+    }
 }
 
 function drawMove(e)
