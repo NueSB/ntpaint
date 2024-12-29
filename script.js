@@ -12,8 +12,8 @@ var canvas = document.querySelector("#c"),
     uiToolIcon = document.querySelector(".overlaytool"),
     uiCharacterIcon = document.querySelector("#overlaychar-img");
 
-    backbuffer.width = canvas.width;
-    backbuffer.height = canvas.height;
+    backbuffer.width = 512;
+    backbuffer.height = 512;
 
 var mainPicker = document.createElement( "input" );
     mainPicker.type = "color";
@@ -173,6 +173,8 @@ function mainDraw(customClear)
             break;
         case 2:
             break;
+        case 3:
+            break;
         
     }
     ctx.translate(-g_viewTransform.x, -g_viewTransform.y);
@@ -181,6 +183,7 @@ function mainDraw(customClear)
 function setBrushSize( i )
 {
     g_BrushSize = i;
+    g_tools[ g_currentTool ].size = g_BrushSize;
     mainDraw( { x: lastCoords.x - g_BrushSize / 2, 
                 y: lastCoords.y - g_BrushSize / 2,
                 w: g_BrushSize, 
@@ -195,13 +198,20 @@ function setTool(i)
         g_currentTool = i;
 
     let sprite = "err";
-    if (g_currentTool <= 2 && g_currentTool >= 0)
-        sprite = ["brush", "bucket", "eyedropper"][g_currentTool];
+    if (g_currentTool <= 3 && g_currentTool >= 0)
+        sprite = ["brush", "bucket", "eyedropper", "eraser"][g_currentTool];
+    
+    g_BrushSize = g_tools[ g_currentTool ].size;
+    mainDraw( { x: lastCoords.x - g_BrushSize / 2, 
+        y: lastCoords.y - g_BrushSize / 2,
+        w: g_BrushSize, 
+        h: g_BrushSize } );
+
     uiToolIcon.src = "images/"+sprite+".png"; 
 }
 
 {
-    let tools = ["pencil", "bucket", "eyedropper"];
+    let tools = ["pencil", "bucket", "eyedropper", "eraser"];
     for (let i = 0; i < tools.length; i++)
     {
         let button = document.createElement("button");
@@ -232,7 +242,7 @@ function setTool(i)
 }
 
 
-var g_viewTransform = Vec2(120,0);
+var g_viewTransform = Vec2(0,0);
 var g_BrushSize = 2;
 var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(255, 255, 255);
@@ -253,6 +263,20 @@ var g_undoHistory = [];
 var g_undoMax = 128;
 var g_undoPosition = 0;
 var g_keyStates = new Map();
+var g_tools = [
+    {
+        size: 3,
+    },
+    {
+        size: 1,
+    },
+    {
+        size: 1,
+    },
+    {
+        size: 3,
+    },
+]
 var g_actionKeys = {
     undo: {
         key: "Z",
@@ -355,6 +379,15 @@ var g_actionKeys = {
         event: "up",
         func: dragView,
         args: [false]
+    },
+    eraser: {
+        key: "E",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        event: "press",
+        func: setTool,
+        args: [3]
     },
 }
 var g_lastDrawTimestamp = 0;
@@ -660,6 +693,11 @@ function drawStart(e)
     let x = lastCoords.x, y = lastCoords.y, mouseIndex = 0;
     let pos = Vec2(x,y)
 
+    if (g_currentTool == 3)
+    {
+        g_currentColor = g_SubColor;
+    }
+
     if (e)
     {
         e.preventDefault();
@@ -681,7 +719,7 @@ function drawStart(e)
             switch (e.button)
             {
                 case 0:
-                    g_currentColor = g_MainColor;
+                    g_currentColor = g_currentTool != 3 ? g_MainColor : g_SubColor;
                 break;
                 
                 case 1:
@@ -689,17 +727,17 @@ function drawStart(e)
                 return;
 
                 case 2:
-                    g_currentColor = g_SubColor;
+                    g_currentColor = g_currentTool != 3 ? g_SubColor : g_MainColor;
                 break;
 
                 default:
-                    g_currentColor = g_MainColor;
+                    g_currentColor = g_currentTool != 3 ? g_MainColor : g_SubColor;
                 break;
             }
 
             mouseIndex = e.button;
         } 
-        else g_currentColor = g_MainColor;
+        else g_currentColor = g_currentTool != 3 ? g_SubColor : g_MainColor;
 
         
         if (e.altKey)
@@ -726,6 +764,11 @@ function drawStart(e)
         
         case 2:
             eyedrop(pos.x,pos.y, mouseIndex);
+        break;
+
+        case 3:
+            drawing = true;
+            drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         break;
     }
 
@@ -918,8 +961,6 @@ window.addEventListener('keyup', (key) =>
             action.ctrlKey == key.ctrlKey &&
             action.shiftKey == key.shiftKey)
         {
-            console.log(action)
-
             let args = [];
             if (action.args)
                 args = action.args;
