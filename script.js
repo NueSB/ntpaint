@@ -7,10 +7,10 @@ var canvas = document.querySelector("#c"),
     backbuffer = document.createElement("canvas"),
     drawing = false,
     lastCoords = { x:-1, y:-1 },
-    spacing = 3,
     uiContainer = document.querySelector(".drawcontainer"),
     uiBottomToolbar = document.querySelector(".ui-bottom-toolbar"),
-    uiToolIcon = document.querySelector(".overlaytool");
+    uiToolIcon = document.querySelector(".overlaytool"),
+    uiCharacterIcon = document.querySelector("#overlaychar-img");
 
     backbuffer.width = canvas.width;
     backbuffer.height = canvas.height;
@@ -226,6 +226,8 @@ function setTool(i)
     uiBottomToolbar.appendChild(button);
 }
 
+
+var g_viewTransform = Vec2(0,0);
 var g_BrushSize = 2;
 var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(255, 255, 255);
@@ -240,6 +242,7 @@ var bucketAnimation = {
     imageData: 0,
     iterations: 0,
     iterationSkipAmt: 1,
+    active: false,
 }
 var g_undoHistory = [];
 var g_undoMax = 128;
@@ -314,9 +317,25 @@ var g_actionKeys = {
         func: exportCopy,
         args: [true]
     },
+    paste: {
+        key: "V",
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        func: pasteImage,
+        args: [Vec2(0,0)]
+    }
 }
 var g_lastDrawTimestamp = 0;
+var g_brushSpacing = 1;
 var g_isLoaded = false;
+
+
+Object.keys(g_actionKeys).forEach(action => {
+    if (!g_keyStates.has(action.key))
+        g_keyStates.set(action.key, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
+    
+})
 
 ctx_b.fillStyle = "#FFFFFF";
 ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
@@ -344,6 +363,32 @@ setInterval( calcFPS ({count: 120, callback: fps => {
         console.log("higher fps detected, uprezzing -> " + fps)
     }
 }}), 1000);
+
+
+async function pasteImage(position) 
+{
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      for (const clipboardItem of clipboardItems) {
+        if (clipboardItem.types.includes('image/png')) 
+        { // Or 'image/jpeg'
+          const blob = await clipboardItem.getType('image/png');
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = document.createElement('img');
+            img.onload = function() {
+                ctx_b.drawImage(img, position.x, position.y);
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(blob);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to read image from clipboard:', err);
+    }
+  }
 
 function swapColors()
 {
@@ -394,6 +439,7 @@ function pushUndoHistory()
 
 function drawLine(start,end,brushSize,spacing)
 {
+    spacing  = 1/g_BrushSize * g_brushSpacing;
     let dist = distance( start, end );
     let step = Vec2( end.x - start.x, end.y - start.y )
                             .normalize()
@@ -450,7 +496,6 @@ function colorDistance(a, b)
 
 function FFAnimation()
 {
-    
     //console.log("base")
     var i = 0;
     
@@ -526,12 +571,17 @@ function FFAnimation()
     if (bucketAnimation.ops.length > 0) 
         window.requestAnimationFrame(FFAnimation);
     else
+    {
         pushUndoHistory();
+        uiCharacterIcon.src = "images/nit1.png";
+        bucketAnimation.active = false;
+    }
 }
 
 // normal flood fill. only kept for reference
 function executeFloodFill(x, y, color)
 {
+    bucketAnimation.active = true;
     bucketAnimation.filledPixels = new Uint8Array(backbuffer.width * backbuffer.height);
     bucketAnimation.imageData = ctx_b.getImageData(0, 0, backbuffer.width, backbuffer.height);
     bucketAnimation.data =  bucketAnimation.imageData.data;
@@ -572,7 +622,7 @@ function eyedrop(x,y, mouseIndex = 0)
 function drawStart(e)
 {
     let x = lastCoords.x, y = lastCoords.y, mouseIndex = 0;
-    
+
     if (e)
     {
         e.preventDefault();
@@ -597,8 +647,7 @@ function drawStart(e)
                 
                 case 1:
                     eyedrop(x,y, e.button);
-                    return;
-                break;
+                return;
 
                 case 2:
                     g_currentColor = g_SubColor;
@@ -612,6 +661,13 @@ function drawStart(e)
             mouseIndex = e.button;
         } 
         else g_currentColor = g_MainColor;
+
+        
+        if (e.altKey)
+        {
+            eyedrop(x,y, 0);
+            return;
+        }
     }
 
     ctx_b.fillStyle = g_currentColor.toString();
@@ -619,11 +675,13 @@ function drawStart(e)
     lastCoords.x = x;
     lastCoords.y = y;
 
+    uiCharacterIcon.src = "images/nit_think.png";
+
     switch (g_currentTool)
     {
         case 0:
             drawing = true;
-            drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_BrushSize/2);
+            drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_brushSpacing);
         break;
 
         case 1:
@@ -650,7 +708,7 @@ function drawMove(e)
     
     if (drawing)
     {
-        drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_BrushSize/2);
+        drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_brushSpacing);
     }
     lastCoords = Vec2(x, y);
     mainDraw( { x: lastCoords.x, 
@@ -677,14 +735,17 @@ function drawEnd(e)
         }
     }
 
-
 	if (drawing)
     {
-        drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_BrushSize/2);
+        drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_brushSpacing);
         pushUndoHistory();
     }
 
     drawing = false;
+    
+    if (!bucketAnimation.active) 
+        uiCharacterIcon.src = "images/nit1.png";
+
     mainDraw( { x: lastCoords.x, 
         y: lastCoords.y,
         w: Math.abs(lastCoords.x - x), 
@@ -747,10 +808,7 @@ window.addEventListener('keydown', (key) =>
     const keyName = key.key.toUpperCase();
 
     if (!g_keyStates.has(keyName))
-        g_keyStates.set(keyName, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
-    
-    if (!g_keyStates.get(keyName).state) 
-        g_keyStates.get(keyName).downTimestamp = Date.now();
+        g_keyStates.set(keyName, {state: false, lastState: false, downTimestamp: 0, upTimestamp: 0});
     
     let actionList = Object.keys(g_actionKeys);
     for( let i = 0; i < actionList.length; i++)
@@ -762,7 +820,7 @@ window.addEventListener('keydown', (key) =>
             action.altKey == key.altKey &&
             action.ctrlKey == key.ctrlKey &&
             action.shiftKey == key.shiftKey &&
-            !g_keyStates.get(keyName).state)
+            Date.now() - g_keyStates.get(keyName).downTimestamp > 1000/FPS)
         {
             let args = [];
             if (action.args)
@@ -777,6 +835,12 @@ window.addEventListener('keydown', (key) =>
     {
         drawStart();
     }
+        
+    if (!g_keyStates.get(keyName).state) 
+        g_keyStates.get(keyName).downTimestamp = Date.now();
+    
+
+
     g_keyStates.get(keyName).state = true;
 
 });
