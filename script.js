@@ -241,7 +241,6 @@ function setTool(i)
     uiBottomToolbar.appendChild(button);
 }
 
-
 var g_viewTransform = Vec2(0,0);
 var g_BrushSize = 2;
 var g_MainColor = new Color(0, 0, 0);
@@ -403,6 +402,7 @@ var g_lastDrawTimestamp = 0;
 var g_brushSpacing = 1;
 var g_isLoaded = false;
 var g_isDragging = false;
+var g_charAnimation = undefined;
 
 
 Object.keys(g_actionKeys).forEach(action => {
@@ -440,6 +440,22 @@ setInterval( calcFPS ({count: 120, callback: fps => {
 function dragView(isDragging)
 {
     g_isDragging = isDragging;
+    if (!isDragging && uiCharacterIcon.src == window.location+"images/nit_pull.png")
+    {
+        setCharacterIcon("nit1");
+    }
+    else
+        if (isDragging) setCharacterIcon("nit_pull");
+}
+
+function setCharacterIcon(name)
+{
+    if (uiCharacterIcon.src == window.location+`images/${name}.png`)
+        return;
+
+    clearTimeout(g_charAnimation);
+    g_charAnimation = undefined;
+    uiCharacterIcon.src = `images/${name}.png`;
 }
 
 async function pasteImage(position) 
@@ -484,6 +500,9 @@ function undo()
     }
 
     ctx_b.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
+
+    setCharacterIcon("nit_blink");
+    g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
     mainDraw();
 }
 
@@ -494,6 +513,9 @@ function redo()
         g_undoPosition = 0;
 
     ctx_b.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
+
+    setCharacterIcon("nit_blink");
+    g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
     mainDraw();
 }
 
@@ -651,7 +673,7 @@ function FFAnimation()
     else
     {
         pushUndoHistory();
-        uiCharacterIcon.src = "images/nit1.png";
+        setCharacterIcon("nit1");
         bucketAnimation.active = false;
     }
 }
@@ -759,7 +781,7 @@ function drawStart(e)
 
     ctx_b.fillStyle = g_currentColor.toString();
 
-    uiCharacterIcon.src = "images/nit_think.png";
+    setCharacterIcon("nit_think");
 
     switch (g_currentTool)
     {
@@ -803,6 +825,7 @@ function drawMove(e)
     if (g_isDragging)
     {
         g_viewTransform = g_viewTransform.add( pos.sub(lastCoords) );
+        setCharacterIcon("nit_pull");
         mainDraw();
         //lastCoords = pos;
         return;
@@ -851,8 +874,8 @@ function drawEnd(e)
 
     drawing = false;
     
-    if (!bucketAnimation.active) 
-        uiCharacterIcon.src = "images/nit1.png";
+    if (!bucketAnimation.active)
+        setCharacterIcon("nit1");
 
     mainDraw( { x: lastCoords.x, 
         y: lastCoords.y,
