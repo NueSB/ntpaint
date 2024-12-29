@@ -769,7 +769,7 @@ function drawStart(e)
 
             mouseIndex = e.button;
         } 
-        else g_currentColor = g_currentTool != 3 ? g_SubColor : g_MainColor;
+        else g_currentColor = g_currentTool == 3 ? g_SubColor : g_MainColor;
 
         
         if (e.altKey)
