@@ -311,6 +311,15 @@ var g_actionKeys = {
         event: "press",
         args: [-1]
     },
+    bucket: {
+        key: "G",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        func: setTool,
+        event: "press",
+        args: [1]
+    },
     eyedropper: {
         key: "K",
         ctrlKey: false,
@@ -446,6 +455,7 @@ async function pasteImage(position)
             const img = document.createElement('img');
             img.onload = function() {
                 ctx_b.drawImage(img, position.x, position.y);
+                pushUndoHistory();
             };
             img.src = reader.result;
           };
