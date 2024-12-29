@@ -259,21 +259,24 @@ var g_actionKeys = {
         ctrlKey: true,
         shiftKey: false,
         altKey: false,
-        func: undo
+        func: undo,
+        event: "down",
     },
     redo: {
         key: "Z",
         ctrlKey: true,
         shiftKey: true,
         altKey: false,
-        func: redo
+        func: redo,
+        event: "down",
     },
     swap: {
         key: "X",
         ctrlKey: false,
         shiftKey: false,
         altKey: false,
-        func: swapColors
+        func: swapColors,
+        event: "press",
     },
     brushket: {
         key: "B",
@@ -281,6 +284,7 @@ var g_actionKeys = {
         shiftKey: false,
         altKey: false,
         func: setTool,
+        event: "press",
         args: [-1]
     },
     eyedropper: {
@@ -289,6 +293,7 @@ var g_actionKeys = {
         shiftKey: false,
         altKey: false,
         func: setTool,
+        event: "press",
         args: [2]
     },
     drawAltStart: {
@@ -312,6 +317,7 @@ var g_actionKeys = {
         ctrlKey: true,
         shiftKey: false,
         altKey: false,
+        event: "press",
         func: exportCopy,
     },
     save: {
@@ -319,6 +325,7 @@ var g_actionKeys = {
         ctrlKey: true,
         shiftKey: false,
         altKey: false,
+        event: "press",
         func: exportCopy,
         args: [true]
     },
@@ -327,20 +334,27 @@ var g_actionKeys = {
         ctrlKey: true,
         shiftKey: false,
         altKey: false,
+        event: "press",
         func: pasteImage,
         args: [Vec2(0,0)]
     },
     dragViewDown: {
         key: " ",
-        event: "down",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        event: "press",
         func: dragView,
         args: [true]
     },
     dragViewUp: {
         key: " ",
-        event: "down",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        event: "up",
         func: dragView,
-        args: [true]
+        args: [false]
     },
 }
 var g_lastDrawTimestamp = 0;
@@ -352,7 +366,6 @@ var g_isDragging = false;
 Object.keys(g_actionKeys).forEach(action => {
     if (!g_keyStates.has(action.key))
         g_keyStates.set(action.key, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
-    
 })
 
 ctx_b.fillStyle = "#FFFFFF";
@@ -736,9 +749,9 @@ function drawMove(e)
     
     if (g_isDragging)
     {
-        g_viewTransform.sub( pos.sub(lastCoords) );
+        g_viewTransform = g_viewTransform.add( pos.sub(lastCoords) );
         mainDraw();
-        lastCoords = pos;
+        //lastCoords = pos;
         return;
     }
 
@@ -857,13 +870,15 @@ window.addEventListener('keydown', (key) =>
     {
         let action = g_actionKeys[actionList[i]];
 
-        if (action.func &&
-            (!action.event || action.event == "down") &&
+        if ((!action.event || action.event == "down" || action.event == "press") &&
             action.key == keyName &&
-            (action.altKey && action.altKey == key.altKey) &&
-            (action.ctrlKey && action.ctrlKey == key.ctrlKey) &&
-            (action.shiftKey && action.shiftKey == key.shiftKey) &&
-            Date.now() - g_keyStates.get(keyName).downTimestamp > 1000/FPS)
+            (action.altKey == key.altKey) &&
+            (action.ctrlKey == key.ctrlKey) &&
+            (action.shiftKey == key.shiftKey) &&
+            (
+                (action.event == "down" && Date.now() - g_keyStates.get(keyName).downTimestamp > 1000/FPS) ||
+                (action.event == "press" && !keyDown(action.key))
+            ))
         {
             let args = [];
             if (action.args)
@@ -897,13 +912,14 @@ window.addEventListener('keyup', (key) =>
     {
         let action = g_actionKeys[actionList[i]];
 
-        if (action.func &&
-            (action.event && action.event == "up") &&
+        if (action.event == "up" &&
             action.key == keyName &&
-            (action.altKey && action.altKey == key.altKey) &&
-            (action.ctrlKey && action.ctrlKey == key.ctrlKey) &&
-            (action.shiftKey && action.shiftKey == key.shiftKey))
+            action.altKey == key.altKey &&
+            action.ctrlKey == key.ctrlKey &&
+            action.shiftKey == key.shiftKey)
         {
+            console.log(action)
+
             let args = [];
             if (action.args)
                 args = action.args;
