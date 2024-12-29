@@ -124,7 +124,11 @@ function mainDraw(customClear)
     {
         return;
     }
+
+    ctx.fillStyle = "#3A3A3A";
+    ctx.fillRect(0,0,canvas.width, canvas.height);
     
+    ctx.translate(g_viewTransform.x, g_viewTransform.y);
     g_lastDrawTimestamp = Date.now();
 
     ctx.lineWidth = 1;
@@ -171,6 +175,7 @@ function mainDraw(customClear)
             break;
         
     }
+    ctx.translate(-g_viewTransform.x, -g_viewTransform.y);
 }
 
 function setBrushSize( i )
@@ -227,7 +232,7 @@ function setTool(i)
 }
 
 
-var g_viewTransform = Vec2(0,0);
+var g_viewTransform = Vec2(120,0);
 var g_BrushSize = 2;
 var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(255, 255, 255);
@@ -287,7 +292,7 @@ var g_actionKeys = {
         args: [2]
     },
     drawAltStart: {
-        key: " ",
+        key: "F",
         ctrlKey: false,
         shiftKey: false,
         altKey: false,
@@ -295,7 +300,7 @@ var g_actionKeys = {
         event: "down",
     },    
     drawAltEnd: {
-        key: " ",
+        key: "F",
         ctrlKey: false,
         shiftKey: false,
         altKey: false,
@@ -324,11 +329,24 @@ var g_actionKeys = {
         altKey: false,
         func: pasteImage,
         args: [Vec2(0,0)]
-    }
+    },
+    dragViewDown: {
+        key: " ",
+        event: "down",
+        func: dragView,
+        args: [true]
+    },
+    dragViewUp: {
+        key: " ",
+        event: "down",
+        func: dragView,
+        args: [true]
+    },
 }
 var g_lastDrawTimestamp = 0;
 var g_brushSpacing = 1;
 var g_isLoaded = false;
+var g_isDragging = false;
 
 
 Object.keys(g_actionKeys).forEach(action => {
@@ -364,6 +382,10 @@ setInterval( calcFPS ({count: 120, callback: fps => {
     }
 }}), 1000);
 
+function dragView(isDragging)
+{
+    g_isDragging = isDragging;
+}
 
 async function pasteImage(position) 
 {
@@ -621,7 +643,9 @@ function eyedrop(x,y, mouseIndex = 0)
 
 function drawStart(e)
 {
+    g_isDragging = false;
     let x = lastCoords.x, y = lastCoords.y, mouseIndex = 0;
+    let pos = Vec2(x,y)
 
     if (e)
     {
@@ -635,6 +659,8 @@ function drawStart(e)
             x = e.touches[0].clientX - canvas.offsetLeft;
             y = e.touches[0].clientY - canvas.offsetTop;
         }
+    
+        pos = Vec2(x,y).sub(g_viewTransform);
 
         // MMB shorthand eyedrop
         if (e.button != undefined)
@@ -646,7 +672,7 @@ function drawStart(e)
                 break;
                 
                 case 1:
-                    eyedrop(x,y, e.button);
+                    eyedrop(pos.x,pos.y, e.button);
                 return;
 
                 case 2:
@@ -665,15 +691,12 @@ function drawStart(e)
         
         if (e.altKey)
         {
-            eyedrop(x,y, 0);
+            eyedrop(pos.x, pos.y, 0);
             return;
         }
     }
 
     ctx_b.fillStyle = g_currentColor.toString();
-	
-    lastCoords.x = x;
-    lastCoords.y = y;
 
     uiCharacterIcon.src = "images/nit_think.png";
 
@@ -681,22 +704,25 @@ function drawStart(e)
     {
         case 0:
             drawing = true;
-            drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_brushSpacing);
+            drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         break;
 
         case 1:
-            executeFloodFill(x, y, g_currentColor);
+            executeFloodFill(pos.x, pos.y, g_currentColor);
         break;
         
         case 2:
-            eyedrop(x,y, mouseIndex);
+            eyedrop(pos.x,pos.y, mouseIndex);
         break;
     }
+
+    lastCoords = pos;
 }
 
 function drawMove(e)
 {
     e.preventDefault();
+
     let x = e.clientX - canvas.offsetLeft;
     let y = e.clientY - canvas.offsetTop;
 
@@ -705,16 +731,29 @@ function drawMove(e)
         x = e.touches[0].clientX - canvas.offsetLeft;
         y = e.touches[0].clientY - canvas.offsetTop;
     }
+
+    let pos = Vec2(x,y).sub(g_viewTransform);
     
+    if (g_isDragging)
+    {
+        g_viewTransform.sub( pos.sub(lastCoords) );
+        mainDraw();
+        lastCoords = pos;
+        return;
+    }
+
     if (drawing)
     {
-        drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_brushSpacing);
+        drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
     }
-    lastCoords = Vec2(x, y);
+    
     mainDraw( { x: lastCoords.x, 
         y: lastCoords.y,
         w: Math.abs(lastCoords.x - x), 
         h: Math.abs(lastCoords.y - y) } );
+        
+
+    lastCoords = pos;
 }
 
 function drawEnd(e)
@@ -735,9 +774,12 @@ function drawEnd(e)
         }
     }
 
+    let pos = Vec2(x,y)
+    if (e) pos = pos.sub(g_viewTransform);
+
 	if (drawing)
     {
-        drawLine(lastCoords, Vec2(x, y), g_BrushSize, g_brushSpacing);
+        drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         pushUndoHistory();
     }
 
@@ -815,11 +857,12 @@ window.addEventListener('keydown', (key) =>
     {
         let action = g_actionKeys[actionList[i]];
 
-        if ((!action.event || action.event == "down") &&
+        if (action.func &&
+            (!action.event || action.event == "down") &&
             action.key == keyName &&
-            action.altKey == key.altKey &&
-            action.ctrlKey == key.ctrlKey &&
-            action.shiftKey == key.shiftKey &&
+            (action.altKey && action.altKey == key.altKey) &&
+            (action.ctrlKey && action.ctrlKey == key.ctrlKey) &&
+            (action.shiftKey && action.shiftKey == key.shiftKey) &&
             Date.now() - g_keyStates.get(keyName).downTimestamp > 1000/FPS)
         {
             let args = [];
@@ -830,17 +873,10 @@ window.addEventListener('keydown', (key) =>
     }
     
     key.preventDefault();
-    
-    if (keyName == "  " && !g_keyStates.get(keyName).state)
-    {
-        drawStart();
-    }
         
-    if (!g_keyStates.get(keyName).state) 
+    if (!keyDown(keyName)) 
         g_keyStates.get(keyName).downTimestamp = Date.now();
     
-
-
     g_keyStates.get(keyName).state = true;
 
 });
@@ -861,11 +897,12 @@ window.addEventListener('keyup', (key) =>
     {
         let action = g_actionKeys[actionList[i]];
 
-        if ((action.event && action.event == "up") &&
+        if (action.func &&
+            (action.event && action.event == "up") &&
             action.key == keyName &&
-            action.altKey == key.altKey &&
-            action.ctrlKey == key.ctrlKey &&
-            action.shiftKey == key.shiftKey)
+            (action.altKey && action.altKey == key.altKey) &&
+            (action.ctrlKey && action.ctrlKey == key.ctrlKey) &&
+            (action.shiftKey && action.shiftKey == key.shiftKey))
         {
             let args = [];
             if (action.args)
@@ -876,9 +913,4 @@ window.addEventListener('keyup', (key) =>
     
     g_keyStates.get(keyName).upTimestamp = Date.now();
     g_keyStates.get(keyName).state = false;
-
-    if (keyName == " " && drawing)
-    {
-        drawEnd();
-    }
 });
