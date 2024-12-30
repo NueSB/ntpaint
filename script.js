@@ -644,9 +644,9 @@ function FFAnimation()
             //console.log("process op")
             let point = bucketAnimation.ops.shift();
             const check = function(x,y) { 
-                var i = point.x+x >= 0 && point.x+x < canvas.width &&
-                        point.y+y >= 0 && point.y+y < canvas.height;
-                i = i && (bucketAnimation.filledPixels[point.x+x+(point.y+y)*canvas.width] < 1);
+                var i = point.x+x >= 0 && point.x+x < backbuffer.width &&
+                        point.y+y >= 0 && point.y+y < backbuffer.height;
+                i = i && (bucketAnimation.filledPixels[point.x+x+(point.y+y)*backbuffer.width] < 1);
                 //if (i) console.log(`adding! ${point.x+x},${point.y+y}!`)
                     return i;
              }
@@ -655,12 +655,12 @@ function FFAnimation()
                     bucketAnimation.ops.push( {x:point.x+x, y:point.y+y} );
                 else 
                     bucketAnimation.ops.unshift( {x:point.x+x, y:point.y+y} );
-                bucketAnimation.filledPixels[(point.x+x)+(point.y+y)*canvas.width] = 1;
+                bucketAnimation.filledPixels[(point.x+x)+(point.y+y)*backbuffer.width] = 1;
              }
 
             //canProcess = check(0,0);
 
-            let pixel = point.x*4 + point.y*canvas.width*4;
+            let pixel = point.x*4 + point.y*backbuffer.width*4;
 
             if (canProcess)
             {         
@@ -679,7 +679,7 @@ function FFAnimation()
                 {
                     //console.log(`setting @ ${point.x}, ${point.y}`)
                     
-                    bucketAnimation.filledPixels[point.x+point.y*canvas.width] = 1;
+                    bucketAnimation.filledPixels[point.x+point.y*backbuffer.width] = 1;
 
                     bucketAnimation.data[ pixel ] = bucketAnimation.replacementColor.r;
                     bucketAnimation.data[pixel+1] = bucketAnimation.replacementColor.g;
