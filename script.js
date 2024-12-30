@@ -129,6 +129,7 @@ function mainDraw(customClear)
     ctx.fillRect(0,0,canvas.width, canvas.height);
     
     ctx.translate(g_viewTransform.x, g_viewTransform.y);
+    ctx.scale( g_viewScale, g_viewScale );
     g_lastDrawTimestamp = Date.now();
 
     ctx.lineWidth = 1;
@@ -177,7 +178,9 @@ function mainDraw(customClear)
             break;
         
     }
+    ctx.scale( 1/g_viewScale, 1/g_viewScale );
     ctx.translate(-g_viewTransform.x, -g_viewTransform.y);
+    
 }
 
 function setBrushSize( i )
@@ -239,9 +242,15 @@ function setTool(i)
     button.innerHTML = "redo";
     button.onclick = function() { redo() };
     uiBottomToolbar.appendChild(button);
+
+    button = document.createElement("button");
+    button.innerHTML = "clear";
+    button.onclick = function() { clearLayer() };
+    uiBottomToolbar.appendChild(button);
 }
 
 var g_viewTransform = Vec2(0,0);
+var g_viewScale = 1.0;
 var g_BrushSize = 2;
 var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(255, 255, 255);
@@ -398,11 +407,13 @@ var g_actionKeys = {
         args: [3]
     },
 }
+var g_drawQueue = [];
 var g_lastDrawTimestamp = 0;
 var g_brushSpacing = 1;
 var g_isLoaded = false;
 var g_isDragging = false;
 var g_charAnimation = undefined;
+var lastCoords_raw = Vec2(0,0);
 
 
 Object.keys(g_actionKeys).forEach(action => {
@@ -436,6 +447,14 @@ setInterval( calcFPS ({count: 120, callback: fps => {
         console.log("higher fps detected, uprezzing -> " + fps)
     }
 }}), 1000);
+
+function clearLayer()
+{
+    ctx_b.fillStyle = g_SubColor.hex;
+    ctx_b.fillRect(0,0,backbuffer.width, backbuffer.height);
+    pushUndoHistory();
+    mainDraw();
+}
 
 function dragView(isDragging)
 {
@@ -743,7 +762,7 @@ function drawStart(e)
             y = e.touches[0].clientY - canvas.offsetTop;
         }
     
-        pos = Vec2(x,y).sub(g_viewTransform);
+        pos = Vec2(x,y).sub(g_viewTransform).scale( 1/g_viewScale );
 
         // MMB shorthand eyedrop
         if (e.button != undefined)
@@ -820,11 +839,13 @@ function drawMove(e)
         y = e.touches[0].clientY - canvas.offsetTop;
     }
 
-    let pos = Vec2(x,y).sub(g_viewTransform);
+    lastCoords_raw = Vec2(x,y);
+
+    let pos = Vec2(x,y).sub(g_viewTransform).scale( 1/g_viewScale );
     
     if (g_isDragging)
     {
-        g_viewTransform = g_viewTransform.add( pos.sub(lastCoords) );
+        g_viewTransform = g_viewTransform.add( pos.sub(lastCoords).scale( g_viewScale ) );
         setCharacterIcon("nit_pull");
         mainDraw();
         //lastCoords = pos;
@@ -864,7 +885,12 @@ function drawEnd(e)
     }
 
     let pos = Vec2(x,y)
-    if (e) pos = pos.sub(g_viewTransform);
+
+    if (e && !e.touches) 
+    {
+        pos = pos.sub(g_viewTransform);
+        pos = pos.scale( 1/g_viewScale );
+    }
 
 	if (drawing)
     {
@@ -923,10 +949,28 @@ canvas.addEventListener("mousedown", e => drawStart(e));
 
 canvas.addEventListener("mousemove", e => drawMove(e) );
 
-window.addEventListener("mouseup", e => { drawEnd(e) });
+canvas.addEventListener("mouseup", e => { drawEnd(e) });
+
+window.addEventListener("scroll", e=>{ e.preventDefault(); })
 
 window.addEventListener( "wheel", e=> {
-    setBrushSize(Math.max(Math.min( g_BrushSize - Math.sign(e.deltaY) * 4, 128), 1));
+    e.preventDefault();
+
+    if (e.ctrlKey )
+    {
+        setBrushSize(Math.max(Math.min( g_BrushSize - Math.sign(e.deltaY) * 4, 128), 1));
+        return;
+    }
+
+    let scale = g_viewScale;
+
+    g_viewScale = Math.max(Math.min( g_viewScale - Math.sign(e.deltaY) * 0.1, 4), 0.01);
+    //g_viewTransform = g_viewTransform.sub( Vec2( 0, 0 ).scale( g_viewScale) );
+    if (scale != g_viewScale)
+        lastCoords = lastCoords_raw.sub( g_viewTransform ).scale( 1/g_viewScale );
+
+    
+    mainDraw();
 });
 
 canvas.addEventListener( "contextmenu", e=> {
