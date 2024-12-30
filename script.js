@@ -752,6 +752,7 @@ function executeFloodFill(x, y, color)
 
 function eyedrop(x,y, mouseIndex = 0)
 {
+    x = floor(x), y = floor(y);
     let pixel = x*4 + y*backbuffer.width*4;
     let data = ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height).data;
 
