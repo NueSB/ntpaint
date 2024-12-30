@@ -267,7 +267,7 @@ function setTool(i)
 
 var g_viewTransform = Vec2(0,0);
 var g_viewScale = 1.0;
-var g_BrushSize = 2;
+var g_BrushSize = 3;
 var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(255, 255, 255);
 var g_currentColor = g_MainColor;
@@ -828,7 +828,15 @@ function drawStart(e)
 
     ctx_b.fillStyle = g_currentColor.toString();
 
-    setCharacterIcon("nit_think");
+    let index = 1;
+    if (lastCoords.y > canvas.height * 0.8)
+        index = 1;
+    else if (lastCoords.y > canvas.height * 0.4)
+        index = 2;
+    else
+        index = 3;
+    
+    setCharacterIcon("nit_think" + index);
 
     switch (g_currentTool)
     {
@@ -882,6 +890,16 @@ function drawMove(e)
 
     if (drawing)
     {
+        let index = 3;
+        if (lastCoords.y > canvas.height * 0.8)
+            index = 3;
+        else if (lastCoords.y > canvas.height * 0.4)
+            index = 2;
+        else
+            index = 1;
+        
+        setCharacterIcon("nit_think" + index);
+
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
     }
     
@@ -997,6 +1015,8 @@ window.addEventListener( "wheel", e=> {
     if (scale != g_viewScale)
         lastCoords = lastCoords_raw.sub( g_viewTransform ).scale( 1/g_viewScale );
 
+
+    ctx.imageSmoothingEnabled = g_viewScale < 1;
     
     mainDraw();
 });
