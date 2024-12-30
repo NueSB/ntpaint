@@ -10,6 +10,15 @@ var canvas = document.querySelector("#c"),
     uiContainer = document.querySelector(".drawcontainer"),
     uiBottomToolbar = document.querySelector(".ui-bottom-toolbar"),
     uiToolIcon = document.querySelector(".overlaytool"),
+    uiToolIconSpin = uiToolIcon.animate(
+        [
+            {transform: "rotateY(0deg)" },{transform: "rotateY(360deg)" }
+        ],
+        {
+            duration: 1000,
+            easing: "cubic-bezier(0,1.31,.76,1.02)"
+        }
+    ),
     uiCharacterIcon = document.querySelector("#overlaychar-img");
 
     backbuffer.width = 1024;
@@ -124,7 +133,7 @@ let debug = false;
 function mainDraw(customClear)
 {
     // framerate lock
-    if ((customClear && customClear.force) ||
+    if ((customClear && customClear.force == false) ||
          Date.now() - g_lastDrawTimestamp < 1000 / FPS || !g_isLoaded)
     {
         return;
@@ -215,7 +224,9 @@ function setTool(i)
         w: g_BrushSize, 
         h: g_BrushSize } );
 
-    uiToolIcon.src = "images/"+sprite+".png"; 
+    setTimeout(() => { uiToolIcon.src = "images/"+sprite+".png" }, 120);
+    uiToolIconSpin.cancel();
+    uiToolIconSpin.play();
 }
 
 {

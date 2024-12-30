@@ -61,7 +61,6 @@ body {
     position: absolute;
     left: -30%;
     bottom: 100%;
-    animation: toolrot 1s ease-in-out infinite;
 }
 
 .overlaychar {
@@ -88,4 +87,8 @@ body {
     0% { transform: scale(0.65, 0.65) rotateY(12deg) }
     50% { transform: scale(0.68, 0.68) rotateY(12deg) }
     100% { transform: scale(0.65, 0.65) rotateY(12deg) }
+}
+
+@keyframes spin {
+    100% { transform: rotateZ(360deg); }
 }
