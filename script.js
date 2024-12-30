@@ -12,8 +12,8 @@ var canvas = document.querySelector("#c"),
     uiToolIcon = document.querySelector(".overlaytool"),
     uiCharacterIcon = document.querySelector("#overlaychar-img");
 
-    backbuffer.width = 512;
-    backbuffer.height = 512;
+    backbuffer.width = 1024;
+    backbuffer.height = 1024;
 
 var mainPicker = document.createElement( "input" );
     mainPicker.type = "color";
@@ -25,11 +25,15 @@ var subPicker = document.createElement( "input" );
     subPicker.onchange = function() { setColor(1, -1) };
     uiBottomToolbar.appendChild(subPicker);
 
-setColor(1, Color.white);
-
 var ctx_b = backbuffer.getContext("2d");
 ctx_b.clearRect(0,0,backbuffer.width, backbuffer.height);
 ctx.fillText("loading gimme a sec", canvas.width/2-50, canvas.height/2);
+
+rescaleViewCanvas();
+
+
+setColor(1, Color.white);
+
 
     
 function distance(a,b)
@@ -120,7 +124,8 @@ let debug = false;
 function mainDraw(customClear)
 {
     // framerate lock
-    if (Date.now() - g_lastDrawTimestamp < 1000 / FPS || !g_isLoaded)
+    if ((customClear && customClear.force) ||
+         Date.now() - g_lastDrawTimestamp < 1000 / FPS || !g_isLoaded)
     {
         return;
     }
@@ -134,7 +139,7 @@ function mainDraw(customClear)
 
     ctx.lineWidth = 1;
 
-    if (!customClear)
+    if (!customClear || customClear.force)
     {
         ctx.clearRect(0,0, canvas.width, canvas.height);
         ctx.drawImage( backbuffer, 0, 0 );
@@ -416,6 +421,8 @@ var g_charAnimation = undefined;
 var lastCoords_raw = Vec2(0,0);
 
 
+
+
 Object.keys(g_actionKeys).forEach(action => {
     if (!g_keyStates.has(action.key))
         g_keyStates.set(action.key, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
@@ -447,6 +454,15 @@ setInterval( calcFPS ({count: 120, callback: fps => {
         console.log("higher fps detected, uprezzing -> " + fps)
     }
 }}), 1000);
+
+function rescaleViewCanvas()
+{
+    let style = window.getComputedStyle(canvas.parentNode);
+    canvas.width = parseInt(style.width.slice(0, -2));
+    canvas.height = parseInt(style.height.slice(0, -2));
+    mainDraw( { force: true } );
+}
+
 
 function clearLayer()
 {
@@ -956,7 +972,7 @@ window.addEventListener("scroll", e=>{ e.preventDefault(); })
 window.addEventListener( "wheel", e=> {
     e.preventDefault();
 
-    if (e.ctrlKey )
+    if (e.shiftKey)
     {
         setBrushSize(Math.max(Math.min( g_BrushSize - Math.sign(e.deltaY) * 4, 128), 1));
         return;
@@ -1048,3 +1064,7 @@ window.addEventListener('keyup', (key) =>
     g_keyStates.get(keyName).upTimestamp = Date.now();
     g_keyStates.get(keyName).state = false;
 });
+
+addEventListener("resize", e => {
+    rescaleViewCanvas();
+})
