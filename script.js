@@ -716,6 +716,7 @@ function FFAnimation()
 // normal flood fill. only kept for reference
 function executeFloodFill(x, y, color)
 {
+    x = Math.floor(x), y = Math.floor(y);
     bucketAnimation.active = true;
     bucketAnimation.filledPixels = new Uint8Array(backbuffer.width * backbuffer.height);
     bucketAnimation.imageData = ctx_b.getImageData(0, 0, backbuffer.width, backbuffer.height);
