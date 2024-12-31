@@ -3,7 +3,7 @@ import { Color } from "./color.js";
 "use strict";
 
 var canvas = document.querySelector("#c"),
-		ctx = canvas.getContext("2d"),
+	ctx = canvas.getContext("2d"),
     backbuffer = document.createElement("canvas"),
     drawing = false,
     lastCoords = { x:-1, y:-1 },
@@ -37,11 +37,6 @@ var subPicker = document.createElement( "input" );
 var ctx_b = backbuffer.getContext("2d");
 ctx_b.clearRect(0,0,backbuffer.width, backbuffer.height);
 ctx.fillText("loading gimme a sec", canvas.width/2-50, canvas.height/2);
-
-rescaleViewCanvas();
-
-
-setColor(1, Color.white);
 
 function clamp(x,min,max)
 {
@@ -125,7 +120,6 @@ const Vec2 = function(x,y)
   }
 }
 
-
 let debugcanvas = document.createElement("canvas");
 debugcanvas.height = backbuffer.height;
 debugcanvas.width = backbuffer.width;
@@ -139,6 +133,8 @@ function mainDraw(customClear)
     if ((customClear && customClear.force == false) ||
          Date.now() - g_lastDrawTimestamp < 1000 / FPS || !g_isLoaded)
     {
+        g_drawQueue.push(customClear || undefined);
+        setTimeout( () => { mainDraw(g_drawQueue[ 0 ]) }, 1000 / FPS );
         return;
     }
 
@@ -220,8 +216,8 @@ function setTool(i)
         g_currentTool = i;
 
     let sprite = "err";
-    if (g_currentTool <= 3 && g_currentTool >= 0)
-        sprite = ["brush", "bucket", "eyedropper", "eraser"][g_currentTool];
+    if (g_currentTool <= 4 && g_currentTool >= 0)
+        sprite = ["pencil", "bucket", "eyedropper", "eraser", "brush"][g_currentTool];
     
     g_BrushSize = g_tools[ g_currentTool ].size;
     mainDraw( { x: lastCoords.x - g_BrushSize / 2, 
@@ -234,52 +230,10 @@ function setTool(i)
     uiToolIconSpin.play();
 }
 
-{
-    let icon = document.createElement("img");
-    icon.src = "images/placeholder.png";
-    let tools = ["pcl", "bkt", "drp", "ers"];
-    for (let i = 0; i < tools.length; i++)
-    {
-        let button = document.createElement("button");
-        let j = i;
-        button.innerHTML += tools[i];
-        button.appendChild(icon.cloneNode());
-        button.onclick = function() { setTool( i ) };
-        uiBottomToolbar.appendChild(button);
-    }
-
-    for (let i = 1; i < 256; i += i)
-    {
-        let button = document.createElement("button");
-        let j = i;
-        button.innerHTML += i.toString().padStart(3, "0");
-        button.appendChild(icon.cloneNode());
-        button.onclick = function() { setBrushSize( j ) };
-        uiBottomToolbar.appendChild(button);
-    }
-
-    let button = document.createElement("button");
-    button.innerHTML = "undo";
-    button.appendChild(icon).cloneNode();
-    button.onclick = function() { undo() };
-    uiBottomToolbar.appendChild(button);
-
-    button = document.createElement("button");
-    button.innerHTML = "redo";
-    button.appendChild(icon.cloneNode());
-    button.onclick = function() { redo() };
-    uiBottomToolbar.appendChild(button);
-
-    button = document.createElement("button");
-    button.innerHTML = "clear";
-    button.appendChild(icon.cloneNode());
-    button.onclick = function() { clearLayer() };
-    uiBottomToolbar.appendChild(button);
-}
-
 var g_viewTransform = Vec2(0,0);
 var g_viewScale = 1.0;
 var g_BrushSize = 3;
+var g_BrushSizePrev = 3;
 var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(255, 255, 255);
 var g_currentColor = g_MainColor;
@@ -301,16 +255,27 @@ var g_undoPosition = 0;
 var g_keyStates = new Map();
 var g_tools = [
     {
-        size: 3,
+        name: "pcl",
+        size: 16,
     },
     {
+        name: "bkt",
         size: 1,
     },
     {
+        name: "drp",
         size: 1,
     },
     {
-        size: 3,
+        name: "ers",
+        size: 16,
+    },
+    {
+        name: "brs",
+        size: 16,
+        soft: false,
+        textured: false,
+        texture: undefined,
     },
 ]
 var g_actionKeys = {
@@ -338,14 +303,14 @@ var g_actionKeys = {
         func: swapColors,
         event: "press",
     },
-    brushket: {
+    brush: {
         key: "B",
         ctrlKey: false,
         shiftKey: false,
         altKey: false,
         func: setTool,
         event: "press",
-        args: [-1]
+        args: [4]
     },
     bucket: {
         key: "G",
@@ -434,6 +399,23 @@ var g_actionKeys = {
         func: setTool,
         args: [3]
     },
+    clear: {
+        key: "DELETE",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        event: "press",
+        func: clearLayer
+    },
+    pencil: {
+        key: "P",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        event: "press",
+        func: setTool,
+        args: [0]
+    }
 }
 var g_drawQueue = [];
 var g_lastDrawTimestamp = 0;
@@ -443,14 +425,59 @@ var g_isDragging = false;
 var g_charAnimation = undefined;
 var lastCoords_raw = Vec2(0,0);
 
+
 Object.keys(g_actionKeys).forEach(action => {
     if (!g_keyStates.has(action.key))
         g_keyStates.set(action.key, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
 })
 
+{
+    let icon = document.createElement("img");
+    icon.src = "images/placeholder.png";
+    for (let i = 0; i < g_tools.length; i++)
+    {
+        let button = document.createElement("button");
+        button.innerHTML += g_tools[i].name;
+        button.appendChild(icon.cloneNode());
+        button.onclick = function() { setTool( i ) };
+        uiBottomToolbar.appendChild(button);
+    }
+
+    for (let i = 1; i < 256; i += i)
+    {
+        let button = document.createElement("button");
+        button.innerHTML += i.toString().padStart(3, "0");
+        button.appendChild(icon.cloneNode());
+        button.onclick = function() { setBrushSize( i ) };
+        uiBottomToolbar.appendChild(button);
+    }
+
+    let button = document.createElement("button");
+    button.innerHTML = "undo";
+    button.appendChild(icon).cloneNode();
+    button.onclick = function() { undo() };
+    uiBottomToolbar.appendChild(button);
+
+    button = document.createElement("button");
+    button.innerHTML = "redo";
+    button.appendChild(icon.cloneNode());
+    button.onclick = function() { redo() };
+    uiBottomToolbar.appendChild(button);
+
+    button = document.createElement("button");
+    button.innerHTML = "clear";
+    button.appendChild(icon.cloneNode());
+    button.onclick = function() { clearLayer() };
+    uiBottomToolbar.appendChild(button);
+}
+
 ctx_b.fillStyle = "#FFFFFF";
 ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
 g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
+
+rescaleViewCanvas();
+setColor(1, Color.white);
+setTool(0);
 
 // https://stackoverflow.com/questions/6131051/is-it-possible-to-find-out-what-is-the-monitor-frame-rate-in-javascript
 function calcFPS(a){function b(){if(f--)c(b);else{var e=3*Math.round(1E3*d/3/(performance.now()-g));"function"===typeof a.callback&&a.callback(e);console.log("Calculated: "+e+" frames per second")}}var c=window.requestAnimationFrame||window.webkitRequestAnimationFrame||window.mozRequestAnimationFrame;if(!c)return!0;a||(a={});var d=a.count||60,f=d,g=performance.now();b()}
@@ -774,6 +801,9 @@ function eyedrop(x,y, mouseIndex = 0)
 
     let index =  [ 0, 0, 1 ][ mouseIndex % 3 ];
     setColor(index, srcColor);
+
+    setCharacterIcon("nit_blink");
+    g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
 }
 
 function drawStart(e)
@@ -802,11 +832,12 @@ function drawStart(e)
     
         pos = Vec2(x,y).sub(g_viewTransform).scale( 1/g_viewScale );
 
-        // MMB shorthand eyedrop
+        // mmb drag shorthand
         if (e.button != undefined)
         {
             switch (e.button)
             {
+
                 case 0:
                     g_currentColor = g_currentTool != 3 ? g_MainColor : g_SubColor;
                 break;
@@ -823,7 +854,6 @@ function drawStart(e)
                     g_currentColor = g_currentTool != 3 ? g_MainColor : g_SubColor;
                 break;
             }
-
             mouseIndex = e.button;
         } 
         else g_currentColor = g_currentTool == 3 ? g_SubColor : g_MainColor;
@@ -848,13 +878,9 @@ function drawStart(e)
     
     setCharacterIcon("nit_think" + index);
 
+
     switch (g_currentTool)
     {
-        case 0:
-            drawing = true;
-            drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
-        break;
-
         case 1:
             executeFloodFill(pos.x, pos.y, g_currentColor);
         break;
@@ -863,7 +889,17 @@ function drawStart(e)
             eyedrop(pos.x,pos.y, mouseIndex);
         break;
 
+        case 4:
+        if (e.pressure)
+        {
+            // smoothing; could use more samples
+            g_BrushSize = 1 + Math.floor(
+                (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
+            );
+        }            
+        case 0:
         case 3:
+        default:
             drawing = true;
             drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         break;
@@ -909,6 +945,14 @@ function drawMove(e)
             index = 1;
         
         setCharacterIcon("nit_think" + index);
+
+
+        if (g_currentTool == 4 && e.pressure)
+        {
+            g_BrushSize = 1 + Math.floor(
+                (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
+            );
+        }
 
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
     }
@@ -997,20 +1041,19 @@ function exportCopy(save)
         ]);
     }, "image/png");
 }
-
+/*
 canvas.addEventListener("touchstart", e => { drawStart(e); })
-
 canvas.addEventListener("touchmove", e => { drawMove(e); });
-
-canvas.addEventListener("touchend", e => { drawEnd(e); });
-
+window.addEventListener("touchend", e => { drawEnd(e); });
 canvas.addEventListener("touchcancel", e => drawEnd(e))
-
 canvas.addEventListener("mousedown", e => drawStart(e));        
-
 canvas.addEventListener("mousemove", e => drawMove(e) );
-
 canvas.addEventListener("mouseup", e => { drawEnd(e) });
+*/
+
+canvas.addEventListener("pointerdown", e => { drawStart(e) });
+canvas.addEventListener("pointermove", e => { drawMove(e) });
+canvas.addEventListener("pointerup", e => { drawEnd(e) });
 
 window.addEventListener("scroll", e=>{ e.preventDefault(); })
 
