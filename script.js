@@ -43,7 +43,10 @@ rescaleViewCanvas();
 
 setColor(1, Color.white);
 
-
+function clamp(x,min,max)
+{
+    return Math.max( Math.min(x, min), max);
+}
     
 function distance(a,b)
 {
@@ -139,6 +142,8 @@ function mainDraw(customClear)
         return;
     }
 
+    g_viewTransform
+
     ctx.fillStyle = "#3A3A3A";
     ctx.fillRect(0,0,canvas.width, canvas.height);
     
@@ -230,12 +235,15 @@ function setTool(i)
 }
 
 {
-    let tools = ["pencil", "bucket", "eyedropper", "eraser"];
+    let icon = document.createElement("img");
+    icon.src = "images/placeholder.png";
+    let tools = ["pcl", "bkt", "drp", "ers"];
     for (let i = 0; i < tools.length; i++)
     {
         let button = document.createElement("button");
         let j = i;
-        button.innerHTML = tools[i];
+        button.innerHTML += tools[i];
+        button.appendChild(icon.cloneNode());
         button.onclick = function() { setTool( i ) };
         uiBottomToolbar.appendChild(button);
     }
@@ -244,23 +252,27 @@ function setTool(i)
     {
         let button = document.createElement("button");
         let j = i;
-        button.innerHTML = i;
+        button.innerHTML += i.toString().padStart(3, "0");
+        button.appendChild(icon.cloneNode());
         button.onclick = function() { setBrushSize( j ) };
         uiBottomToolbar.appendChild(button);
     }
 
     let button = document.createElement("button");
     button.innerHTML = "undo";
+    button.appendChild(icon).cloneNode();
     button.onclick = function() { undo() };
     uiBottomToolbar.appendChild(button);
 
     button = document.createElement("button");
     button.innerHTML = "redo";
+    button.appendChild(icon.cloneNode());
     button.onclick = function() { redo() };
     uiBottomToolbar.appendChild(button);
 
     button = document.createElement("button");
     button.innerHTML = "clear";
+    button.appendChild(icon.cloneNode());
     button.onclick = function() { clearLayer() };
     uiBottomToolbar.appendChild(button);
 }
@@ -430,9 +442,6 @@ var g_isLoaded = false;
 var g_isDragging = false;
 var g_charAnimation = undefined;
 var lastCoords_raw = Vec2(0,0);
-
-
-
 
 Object.keys(g_actionKeys).forEach(action => {
     if (!g_keyStates.has(action.key))
@@ -803,7 +812,7 @@ function drawStart(e)
                 break;
                 
                 case 1:
-                    eyedrop(pos.x,pos.y, e.button);
+                    dragView(true);
                 return;
 
                 case 2:
@@ -928,6 +937,11 @@ function drawEnd(e)
         {
             x = lastCoords.x,
             y = lastCoords.y;
+        }
+
+        if (e.button && e.button == 1)
+        {
+            dragView(false);
         }
     }
 
