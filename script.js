@@ -126,26 +126,39 @@ debugcanvas.width = backbuffer.width;
 var ctx_dbg = debugcanvas.getContext("2d");
 let debug = false;
 
+
+function main()
+{
+    g_drawBlank = false;
+
+    for (var i = 0; i < g_drawQueue.length; i++)
+    {
+        mainDraw( g_drawQueue[i] );
+    }
+
+    g_drawQueue = [];
+    g_drawBlank = true;
+    requestAnimationFrame(main);
+}
+
 // provide a custom region to clear if needed (cursor updates, etc)
 function mainDraw(customClear)
 {
     // framerate lock
-    if ((customClear && customClear.force == false) ||
-         Date.now() - g_lastDrawTimestamp < 1000 / FPS || !g_isLoaded)
+    if (g_drawBlank)
     {
+        if (!customClear)
+            g_drawQueue = [];
         g_drawQueue.push(customClear || undefined);
-        setTimeout( () => { mainDraw(g_drawQueue[ 0 ]) }, 1000 / FPS );
+        //setTimeout( () => { mainDraw(g_drawQueue[ 0 ]) }, 1000 / FPS );
         return;
     }
-
-    g_viewTransform
 
     ctx.fillStyle = "#3A3A3A";
     ctx.fillRect(0,0,canvas.width, canvas.height);
     
     ctx.translate(g_viewTransform.x, g_viewTransform.y);
     ctx.scale( g_viewScale, g_viewScale );
-    g_lastDrawTimestamp = Date.now();
 
     ctx.lineWidth = 1;
 
@@ -418,7 +431,7 @@ var g_actionKeys = {
     }
 }
 var g_drawQueue = [];
-var g_lastDrawTimestamp = 0;
+var g_drawBlank = false; // draw "blanking period"; space between frames
 var g_brushSpacing = 1;
 var g_isLoaded = false;
 var g_isDragging = false;
@@ -469,38 +482,18 @@ Object.keys(g_actionKeys).forEach(action => {
     button.appendChild(icon.cloneNode());
     button.onclick = function() { clearLayer() };
     uiBottomToolbar.appendChild(button);
-}
 
-ctx_b.fillStyle = "#FFFFFF";
-ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
-g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
-
-rescaleViewCanvas();
-setColor(1, Color.white);
-setTool(0);
-
-// https://stackoverflow.com/questions/6131051/is-it-possible-to-find-out-what-is-the-monitor-frame-rate-in-javascript
-function calcFPS(a){function b(){if(f--)c(b);else{var e=3*Math.round(1E3*d/3/(performance.now()-g));"function"===typeof a.callback&&a.callback(e);console.log("Calculated: "+e+" frames per second")}}var c=window.requestAnimationFrame||window.webkitRequestAnimationFrame||window.mozRequestAnimationFrame;if(!c)return!0;a||(a={});var d=a.count||60,f=d,g=performance.now();b()}
-var FPS = 0, err = calcFPS({count: 120, callback: fps => {
-    FPS = fps; 
+    ctx_b.fillStyle = "#FFFFFF";
+    ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
+    g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
+    
+    rescaleViewCanvas();
+    setColor(1, Color.white);
+    setTool(0);
     g_isLoaded = true;
-    ctx.drawImage(backbuffer, 0, 0)
-}});
-
-if (err)
-{
-    FPS = 30;
-    g_isLoaded = true; 
-    ctx.drawImage(backbuffer, 0, 0);
+    main();
 }
-//
-setInterval( calcFPS ({count: 120, callback: fps => {
-    if (fps > FPS)
-    {
-        FPS = fps;
-        console.log("higher fps detected, uprezzing -> " + fps)
-    }
-}}), 1000);
+
 
 function rescaleViewCanvas()
 {
@@ -1053,7 +1046,7 @@ canvas.addEventListener("mouseup", e => { drawEnd(e) });
 
 canvas.addEventListener("pointerdown", e => { drawStart(e) });
 canvas.addEventListener("pointermove", e => { drawMove(e) });
-canvas.addEventListener("pointerup", e => { drawEnd(e) });
+window.addEventListener("pointerup", e => { drawEnd(e) });
 
 window.addEventListener("scroll", e=>{ e.preventDefault(); })
 
