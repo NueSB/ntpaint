@@ -1070,7 +1070,7 @@ window.addEventListener( "wheel", e=> {
     ctx.imageSmoothingEnabled = g_viewScale < 1;
     
     mainDraw();
-});
+}, { passive: false });
 
 canvas.addEventListener( "contextmenu", e=> {
     e.preventDefault();
