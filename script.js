@@ -1,4 +1,5 @@
 import { Color } from "./color.js";
+import { Picker } from "./picker.js";
 
 "use strict";
 
@@ -8,6 +9,7 @@ var canvas = document.querySelector("#c"),
     drawing = false,
     lastCoords = { x:-1, y:-1 },
     uiContainer = document.querySelector(".drawcontainer"),
+    uiColorContainer = document.querySelector(".colorcontainer"),
     uiBottomToolbar = document.querySelector(".ui-bottom-toolbar"),
     uiToolIcon = document.querySelector(".overlaytool"),
     uiToolIconSpin = uiToolIcon.animate(
@@ -24,15 +26,15 @@ var canvas = document.querySelector("#c"),
     backbuffer.width = 1024;
     backbuffer.height = 1024;
 
-var mainPicker = document.createElement( "input" );
-    mainPicker.type = "color";
-    mainPicker.onchange = function() { setColor(0, -1) };
-    uiBottomToolbar.appendChild(mainPicker);
+var subPicker = document.createElement( "div" );
+    subPicker.id = "subpicker";
+    uiColorContainer.appendChild(subPicker);
 
-var subPicker = document.createElement( "input" );
-    subPicker.type = "color";
-    subPicker.onchange = function() { setColor(1, -1) };
-    uiBottomToolbar.appendChild(subPicker);
+var mainPicker = document.createElement( "div" );
+    mainPicker.id = "mainpicker";
+    uiColorContainer.appendChild(mainPicker);
+
+var colorPicker = new Picker("#colorpicker");
 
 var ctx_b = backbuffer.getContext("2d");
 ctx_b.clearRect(0,0,backbuffer.width, backbuffer.height);
@@ -40,9 +42,14 @@ ctx.fillText("loading gimme a sec", canvas.width/2-50, canvas.height/2);
 
 function clamp(x,min,max)
 {
-    return Math.max( Math.min(x, min), max);
+    return Math.max( Math.min(x, max), min);
 }
-    
+
+function clamp01(x)
+{
+    return Math.max( Math.min(x, 1), 0);
+}
+
 function distance(a,b)
 {
   return Math.sqrt( Math.pow(b.x-a.x, 2) + Math.pow(b.y-a.y,2) );
@@ -634,20 +641,13 @@ function setColor(colorIndex, color)
     switch(colorIndex)
     {
         case 0:
-            if (color == -1)
-            {
-                color = new Color(mainPicker.value);
-            }
             g_MainColor = color;
-            mainPicker.value = color.hex;
+            console.log(color.hex);
+            mainPicker.style.backgroundColor = color.hex;
             break;
         case 1:
-            if (color == -1)
-            {
-                color = new Color(subPicker.value);
-            }
             g_SubColor = color;
-            subPicker.value = color.hex;
+            subPicker.style.backgroundColor = color.hex;
             break;
         default:
             break;
@@ -1045,7 +1045,10 @@ canvas.addEventListener("mouseup", e => { drawEnd(e) });
 
 canvas.addEventListener("pointerdown", e => { drawStart(e) });
 canvas.addEventListener("pointermove", e => { drawMove(e) });
-window.addEventListener("pointerup", e => { drawEnd(e) });
+window.addEventListener("pointerup", e => { 
+    drawEnd(e); 
+    colorPicker.mouseDown = false; 
+});
 
 window.addEventListener("scroll", e=>{ e.preventDefault(); })
 
@@ -1087,10 +1090,6 @@ window.addEventListener('keydown', (key) =>
     for( let i = 0; i < actionList.length; i++)
     {
         let action = g_actionKeys[actionList[i]];
-
-        if ((!action.event || action.event == "down" || action.event == "press") &&
-        action.key == keyName)
-            console.log(action.key);
 
         if ((!action.event || action.event == "down" || action.event == "press") &&
             action.key == keyName &&
@@ -1154,3 +1153,30 @@ window.addEventListener('keyup', (key) =>
 addEventListener("resize", e => {
     rescaleViewCanvas();
 })
+
+colorPicker.element.addEventListener( "pointerdown", e => { 
+    colorPicker.mouseDown = true;
+    let x = (e.clientX - colorPicker.element.offsetLeft) / colorPicker.size;
+    let y = (e.clientY - colorPicker.element.offsetTop) / colorPicker.size;
+
+    let rgb = colorPicker.getColor(
+        clamp01(x), 
+        clamp01(y)
+    );
+    setColor(0, new Color(rgb[0], rgb[1], rgb[2]));
+ } );
+
+// todo: tie into reg drawing
+
+window.addEventListener( "pointermove", e => {
+    if (!colorPicker.mouseDown) 
+        return;
+    let x = (e.clientX - colorPicker.element.offsetLeft) / colorPicker.size;
+    let y = (e.clientY - colorPicker.element.offsetTop) / colorPicker.size;
+
+    let rgb = colorPicker.getColor(
+        clamp01(x), 
+        clamp01(y)
+    );
+    setColor(0, new Color(rgb[0], rgb[1], rgb[2]));
+} )
