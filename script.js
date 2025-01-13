@@ -642,7 +642,6 @@ function setColor(colorIndex, color)
     {
         case 0:
             g_MainColor = color;
-            console.log(color.hex)
             mainPicker.style.backgroundColor = color.hex;
             break;
         case 1:
@@ -882,7 +881,7 @@ function drawStart(e)
         break;
 
         case 4:
-        if (e.pressure)
+        if (e && e.pressure)
         {
             // smoothing; could use more samples
             g_BrushSize = 1 + Math.floor(
@@ -939,7 +938,7 @@ function drawMove(e)
         setCharacterIcon("nit_think" + index);
 
 
-        if (g_currentTool == 4 && e.pressure)
+        if (g_currentTool == 4  && e && e.pressure)
         {
             g_BrushSize = 1 + Math.floor(
                 (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
