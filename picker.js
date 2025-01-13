@@ -63,7 +63,7 @@ export class Picker {
                 this.imageData.data[i+3] = 255;
             }
         }
-        console.log(this.normH);
+
     };
 
     redraw = function()
@@ -94,11 +94,11 @@ export class Picker {
         }
         else 
             this.lastPickedPosition = {x: normX, y: normY};
-
+        
         requestAnimationFrame(this.redraw.bind(this));
         return hsv2rgb( this.normH * 360, 
             1-this.lastPickedPosition.x, 
-            1-this.lastPickedPosition.y*0.9 ).map( x => Math.floor(x));
+            1-(this.lastPickedPosition.y*1.1) ).map( x => Math.floor(x));
     };
 
     constructor(divId) 
