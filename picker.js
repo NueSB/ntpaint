@@ -109,9 +109,9 @@ export class Picker {
         this.ctx.globalCompositeOperation = "source-over";
         this.ctx.putImageData(this.imageData, 0, 0);
         //
-        let reticleSize = 8;
+        let reticleSize = 16;
         this.ctx.globalCompositeOperation = "xor";
-        this.ctx.lineWidth = 1;
+        this.ctx.lineWidth = 3;
         this.ctx.strokeRect( this.lastPickedPosition.x * this.canvas.width - reticleSize/2, 
                              this.lastPickedPosition.y * this.canvas.height - reticleSize/2,
                              reticleSize,
@@ -142,7 +142,7 @@ export class Picker {
     setColor = function(color) {
         let hsv = rgbToHsv(color);
         this.normH = hsv[0];
-        this.lastPickedPosition = {x: hsv[1], y: hsv[2]};
+        this.lastPickedPosition = {x: 1-hsv[1], y: (1-hsv[2])*0.9};
 
         requestAnimationFrame(this.redrawSpectrum.bind(this));
         requestAnimationFrame(this.redraw.bind(this));
