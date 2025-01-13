@@ -642,7 +642,7 @@ function setColor(colorIndex, color)
     {
         case 0:
             g_MainColor = color;
-            console.log(color.hex);
+            console.log(color.hex)
             mainPicker.style.backgroundColor = color.hex;
             break;
         case 1:

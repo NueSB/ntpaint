@@ -98,7 +98,7 @@ export class Picker {
         requestAnimationFrame(this.redraw.bind(this));
         return hsv2rgb( this.normH * 360, 
             1-this.lastPickedPosition.x, 
-            1-this.lastPickedPosition.y*0.9 );
+            1-this.lastPickedPosition.y*0.9 ).map( x => Math.floor(x));
     };
 
     constructor(divId) 
