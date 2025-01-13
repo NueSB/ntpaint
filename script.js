@@ -52,6 +52,30 @@ var ctx_b = backbuffer.getContext("2d");
 ctx_b.clearRect(0,0,backbuffer.width, backbuffer.height);
 ctx.fillText("loading gimme a sec", canvas.width/2-50, canvas.height/2);
 
+
+class Layer {
+    canvas = undefined;
+    ctx = undefined;
+    width = 0;
+    height = 0;
+
+    constructor(width, height)
+    {
+        this.canvas = document.createElement("canvas");
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.ctx = this.canvas.getContext("2d");
+        this.width = width;
+        this.height = height;
+    }
+
+    resize(w, h)
+    {
+
+    }
+}
+
+
 function clamp(x,min,max)
 {
     return Math.max( Math.min(x, max), min);
@@ -180,17 +204,20 @@ function mainDraw(customClear)
 
     ctx.lineWidth = 1;
 
-    if (!customClear || customClear.force)
+    let region = {x: 0, y: 0, w: canvas.width, h: canvas.height};
+
+    
+    //if (!customClear || customClear.force)
     {
         ctx.clearRect(0,0, canvas.width, canvas.height);
         ctx.drawImage( backbuffer, 0, 0 );
-    }
+    }/*
     else
     {
         ctx.clearRect(customClear.x, customClear.y, customClear.w, customClear.h);
         ctx.drawImage( backbuffer, 0, 0 );
     }
-
+    */
 
     if (debug)
     {
@@ -223,10 +250,11 @@ function mainDraw(customClear)
             break;
         case 3:
             break;
-        
     }
+    
     ctx.scale( 1/g_viewScale, 1/g_viewScale );
     ctx.translate(-g_viewTransform.x, -g_viewTransform.y);
+
     
 }
 
@@ -262,6 +290,12 @@ function setTool(i)
     uiToolIconSpin.play();
 }
 
+function setActiveLayer(i)
+{
+    g_currentLayer = g_layers[ i ];
+    g_layerctx = g_currentLayer.ctx;
+}
+
 var g_viewTransform = Vec2(0,0);
 var g_viewScale = 1.0;
 var g_BrushSize = 3;
@@ -289,18 +323,22 @@ var g_tools = [
     {
         name: "pcl",
         size: 16,
+        opacity: 0.2,
     },
     {
         name: "bkt",
         size: 1,
+        opacity: 1,
     },
     {
         name: "drp",
         size: 1,
+        opacity: 1,
     },
     {
         name: "ers",
         size: 16,
+        opacity: 1,
     },
     {
         name: "brs",
@@ -308,6 +346,7 @@ var g_tools = [
         soft: false,
         textured: false,
         texture: undefined,
+        opacity: 1,
     },
 ]
 var g_actionKeys = {
@@ -457,6 +496,10 @@ var g_isDragging = false;
 var g_charAnimation = undefined;
 var lastCoords_raw = Vec2(0,0);
 
+var g_layers = [];
+var g_currentLayer = 0;
+var g_layerctx = undefined;
+
 
 Object.keys(g_actionKeys).forEach(action => {
     if (!g_keyStates.has(action.key))
@@ -502,16 +545,26 @@ Object.keys(g_actionKeys).forEach(action => {
     button.onclick = function() { clearLayer() };
     uiBottomToolbar.appendChild(button);
 
-    ctx_b.fillStyle = "#FFFFFF";
-    ctx_b.fillRect(0, 0, backbuffer.width, backbuffer.height);
-    g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
-    
     rescaleViewCanvas();
     setColor(1, Color.white);
     setTool(0);
     g_isLoaded = true;
     main();
     displayToast("loaded!");
+
+    for (var i = 0; i < 2; i++)
+    {
+        g_layers.push( new Layer( 1024, 1024 ) );
+    }
+
+    ctx_b.fillStyle = "#DDDDDD"; // background fill
+    ctx_b.fillRect(0,0,backbuffer.width, backbuffer.height);
+
+    setActiveLayer( 0 );
+    g_undoHistory.push( g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height) );
+
+    mainDraw();
+
 }
 
 
@@ -533,8 +586,8 @@ function rescaleViewCanvas()
 
 function clearLayer()
 {
-    ctx_b.fillStyle = g_SubColor.hex;
-    ctx_b.fillRect(0,0,backbuffer.width, backbuffer.height);
+    g_layerctx.fillStyle = g_SubColor.hex;
+    g_layerctx.fillRect(0,0,g_currentLayer.width, g_currentLayer.height);
     pushUndoHistory();
     mainDraw();
 }
@@ -572,7 +625,7 @@ async function pasteImage(position)
           reader.onload = () => {
             const img = document.createElement('img');
             img.onload = function() {
-                ctx_b.drawImage(img, position.x, position.y);
+                g_layerctx.drawImage(img, position.x, position.y);
                 pushUndoHistory();
             };
             img.src = reader.result;
@@ -601,7 +654,7 @@ function undo()
         g_undoPosition = g_undoHistory.length-1;
     }
 
-    ctx_b.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
+    g_layerctx.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
@@ -614,7 +667,7 @@ function redo()
     if (g_undoPosition < 0)
         g_undoPosition = 0;
 
-    ctx_b.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
+    g_layerctx.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
@@ -636,7 +689,7 @@ function pushUndoHistory()
     {
         g_undoHistory.shift();
     }
-    g_undoHistory.push( ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height) );
+    g_undoHistory.push( g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height) );
 }
 
 function drawLine(start,end,brushSize,spacing)
@@ -649,12 +702,40 @@ function drawLine(start,end,brushSize,spacing)
     let pos = Vec2(start.x, start.y);
     
     // stamp every N units along line
+    //ctx_b.globalAlpha = 0.01;//g_tools[g_currentTool].opacity;
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
-        ctx_b.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
+        g_layerctx.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
         pos.x += step.x;
         pos.y += step.y;
     }
+
+    
+    let region = { x: start.x < end.x ? start.x : end.x,
+                   y: start.y < end.y ? start.y : end.y,
+                   w: Math.abs(start.x - end.x),
+                   h: Math.abs(start.y - end.y) }
+
+    region.x = Math.floor(region.x) - brushSize;
+    region.y = Math.floor(region.y) - brushSize;
+    region.w = Math.floor(region.w) + brushSize * 2;
+    region.h = Math.floor(region.h) + brushSize * 2;
+    
+
+    ctx_b.fillStyle = "#DDDDDD";
+    ctx_b.fillRect(region.x, region.y, region.w, region.h);
+    //ctx_b.clearRect(region.x, region.y, region.w, region.h);
+
+    for (var i = 0; i < g_layers.length; i++)
+    {
+        // ctx.globalCompositeOperation = LAYER MODE HERE
+        ctx_b.drawImage( g_layers[i].canvas, 
+            region.x, region.y, region.w, region.h, 
+            region.x, region.y, region.w, region.h );
+    }
+
+        
+    g_layerctx.globalAlpha = 1;
 }
 
 function setColor(colorIndex, color)
@@ -703,9 +784,9 @@ function FFAnimation()
             //console.log("process op")
             let point = bucketAnimation.ops.shift();
             const check = function(x,y) { 
-                var i = point.x+x >= 0 && point.x+x < backbuffer.width &&
-                        point.y+y >= 0 && point.y+y < backbuffer.height;
-                i = i && (bucketAnimation.filledPixels[point.x+x+(point.y+y)*backbuffer.width] < 1);
+                var i = point.x+x >= 0 && point.x+x < g_currentLayer.width &&
+                        point.y+y >= 0 && point.y+y < g_currentLayer.height;
+                i = i && (bucketAnimation.filledPixels[point.x+x+(point.y+y)*g_currentLayer.width] < 1);
                 //if (i) console.log(`adding! ${point.x+x},${point.y+y}!`)
                     return i;
              }
@@ -714,12 +795,12 @@ function FFAnimation()
                     bucketAnimation.ops.push( {x:point.x+x, y:point.y+y} );
                 else 
                     bucketAnimation.ops.unshift( {x:point.x+x, y:point.y+y} );
-                bucketAnimation.filledPixels[(point.x+x)+(point.y+y)*backbuffer.width] = 1;
+                bucketAnimation.filledPixels[(point.x+x)+(point.y+y)*g_currentLayer.width] = 1;
              }
 
             //canProcess = check(0,0);
 
-            let pixel = point.x*4 + point.y*backbuffer.width*4;
+            let pixel = point.x*4 + point.y*g_currentLayer.width*4;
 
             if (canProcess)
             {         
@@ -738,7 +819,7 @@ function FFAnimation()
                 {
                     //console.log(`setting @ ${point.x}, ${point.y}`)
                     
-                    bucketAnimation.filledPixels[point.x+point.y*backbuffer.width] = 1;
+                    bucketAnimation.filledPixels[point.x+point.y*g_currentLayer.width] = 1;
 
                     bucketAnimation.data[ pixel ] = bucketAnimation.replacementColor.r;
                     bucketAnimation.data[pixel+1] = bucketAnimation.replacementColor.g;
@@ -757,7 +838,7 @@ function FFAnimation()
         i++;
     }
 
-    ctx_b.putImageData(bucketAnimation.imageData, 0, 0);
+    g_layerctx.putImageData(bucketAnimation.imageData, 0, 0);
     mainDraw();
     bucketAnimation.iterations = 0;
     bucketAnimation.iterationSkipAmt *= 1.3;
@@ -777,13 +858,13 @@ function executeFloodFill(x, y, color)
 {
     x = Math.floor(x), y = Math.floor(y);
     bucketAnimation.active = true;
-    bucketAnimation.filledPixels = new Uint8Array(backbuffer.width * backbuffer.height);
-    bucketAnimation.imageData = ctx_b.getImageData(0, 0, backbuffer.width, backbuffer.height);
+    bucketAnimation.filledPixels = new Uint8Array(g_currentLayer.width * g_currentLayer.height);
+    bucketAnimation.imageData = g_layerctx.getImageData(0, 0, g_currentLayer.width, g_currentLayer.height);
     bucketAnimation.data =  bucketAnimation.imageData.data;
     bucketAnimation.iterations = 0;
     bucketAnimation.iterationSkipAmt = 1;
 
-    let pixel = x*4 + y*backbuffer.width*4;
+    let pixel = x*4 + y*g_currentLayer.width*4;
     bucketAnimation.srcColor = {
          r:  bucketAnimation.data[ pixel ],
          g:  bucketAnimation.data[ pixel + 1 ],
@@ -801,8 +882,8 @@ function executeFloodFill(x, y, color)
 function eyedrop(x,y, mouseIndex = 0)
 {
     x = Math.floor(x), y = Math.floor(y);
-    let pixel = x*4 + y*backbuffer.width*4;
-    let data = ctx_b.getImageData(0,0,backbuffer.width, backbuffer.height).data;
+    let pixel = x*4 + y*g_currentLayer.width*4;
+    let data = g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height).data;
 
     let srcColor = new Color(
         data[ pixel ],
@@ -879,7 +960,7 @@ function drawStart(e)
         }
     }
 
-    ctx_b.fillStyle = g_currentColor.toString();
+    g_layerctx.fillStyle = g_currentColor.toString();
 
     let index = 1;
     if (lastCoords.y > canvas.height * 0.8)
@@ -1046,8 +1127,6 @@ function exportCopy(save)
 
             a.addEventListener('click', clickHandler, false);
             a.click();
-
-            return;
         }
 
         navigator.clipboard.write([
@@ -1177,7 +1256,7 @@ addEventListener("resize", e => {
     rescaleViewCanvas();
 })
 
-colorPicker.element.addEventListener( "pointerdown", e => { 
+colorPicker.canvas.addEventListener( "pointerdown", e => { 
     colorPicker.mouseDown = true;
     let x = (e.clientX - colorPicker.element.offsetLeft) / colorPicker.size;
     let y = (e.clientY - colorPicker.element.offsetTop) / colorPicker.size;
