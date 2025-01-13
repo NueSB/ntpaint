@@ -150,7 +150,6 @@ function mainDraw(customClear)
         if (!customClear)
             g_drawQueue = [];
         g_drawQueue.push(customClear || undefined);
-        //setTimeout( () => { mainDraw(g_drawQueue[ 0 ]) }, 1000 / FPS );
         return;
     }
 
@@ -1090,12 +1089,16 @@ window.addEventListener('keydown', (key) =>
         let action = g_actionKeys[actionList[i]];
 
         if ((!action.event || action.event == "down" || action.event == "press") &&
+        action.key == keyName)
+            console.log(action.key);
+
+        if ((!action.event || action.event == "down" || action.event == "press") &&
             action.key == keyName &&
             (action.altKey == key.altKey) &&
             (action.ctrlKey == key.ctrlKey) &&
             (action.shiftKey == key.shiftKey) &&
             (
-                (action.event == "down" && Date.now() - g_keyStates.get(keyName).downTimestamp > 1000/FPS) ||
+                (action.event == "down" && Date.now() - g_keyStates.get(keyName).downTimestamp > 1000/60) ||
                 (action.event == "press" && !keyDown(action.key))
             ))
         {
