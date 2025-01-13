@@ -1166,7 +1166,7 @@ colorPicker.element.addEventListener( "pointerdown", e => {
     setColor(0, new Color(rgb[0], rgb[1], rgb[2]));
  } );
 
-// todo: tie into reg drawing
+// todo: tie into reg drawing (global cursor)
 
 window.addEventListener( "pointermove", e => {
     if (!colorPicker.mouseDown) 

@@ -50,22 +50,6 @@ body {
     margin: 2px;
 }
 
-.colorcontainer {
-    display: grid;
-    height: 100%;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    grid-column-gap: 0px;
-    grid-row-gap: 0px;
-}
-
-.colorcontainer div {
-    border: 1px solid black;
-}
-
-#mainpicker { grid-area: 1 / 1 / 3 / 3; }
-#subpicker { grid-area: 2 / 2 / 4 / 4; } 
-
 .ui-bottom-toolbar button {
     height: 100%;
     background: #c5c5c5;
@@ -113,13 +97,40 @@ body {
 
 #colorpicker {
     position: fixed;
-    right: 0%;
-    bottom: 5%;
-    border: 2px solid black;
-    box-shadow: 6px 6px rgb(0 0 0 / 20%);
+    right: 1.5%;
+    top: 1%;
     margin: 1vh;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    grid-column-gap: 0px;
+    grid-row-gap: 0px; 
 }
 
+#colorpicker canvas { 
+    box-shadow: 6px 6px rgb(0 0 0 / 20%);
+    grid-area: 1 / 1 / 2 / 4;
+    border: 2px solid black;
+}
+
+.colorcontainer {
+    margin: 12px;
+    display: grid;
+    height: 20%;
+    grid-area: 2 / 2 / 3 / 3;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    grid-column-gap: 0px;
+    grid-row-gap: 2px; 
+}
+
+.colorcontainer div {
+    border: 2px solid black;
+    box-shadow: 6px 6px rgb(0 0 0 / 20%);
+}
+
+#mainpicker { grid-area: 1 / 1 / 3 / 3; }
+#subpicker { grid-area: 2 / 2 / 4 / 4; } 
 
 @keyframes charbob {
     0% { }
