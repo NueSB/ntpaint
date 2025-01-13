@@ -793,6 +793,7 @@ function eyedrop(x,y, mouseIndex = 0)
     let index =  [ 0, 0, 1 ][ mouseIndex % 3 ];
     setColor(index, srcColor);
 
+    colorPicker.setColor( srcColor );
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
 }

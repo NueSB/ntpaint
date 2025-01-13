@@ -1,35 +1,73 @@
-import { Color } from "./color.js";
-
-  // hue in range [0, 360]
-  // saturation, value in range [0,1]
-  // return [r,g,b] each in range [0,255]
-function hsv2rgb(hue, saturation, value) 
-{
-    let chroma = value * saturation;
-    let hue1 = hue / 60;
-    let x = chroma * (1- Math.abs((hue1 % 2) - 1));
-    let r1, g1, b1;
-    if (hue1 >= 0 && hue1 <= 1) {
-      ([r1, g1, b1] = [chroma, x, 0]);
-    } else if (hue1 >= 1 && hue1 <= 2) {
-      ([r1, g1, b1] = [x, chroma, 0]);
-    } else if (hue1 >= 2 && hue1 <= 3) {
-      ([r1, g1, b1] = [0, chroma, x]);
-    } else if (hue1 >= 3 && hue1 <= 4) {
-      ([r1, g1, b1] = [0, x, chroma]);
-    } else if (hue1 >= 4 && hue1 <= 5) {
-      ([r1, g1, b1] = [x, 0, chroma]);
-    } else if (hue1 >= 5 && hue1 <= 6) {
-      ([r1, g1, b1] = [chroma, 0, x]);
+/**
+ * https://gist.github.com/mjackson/5311256
+ * Converts an RGB color value to HSV. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSV_color_space.
+ * Assumes r, g, and b are contained in the set [0, 255] and
+ * returns h, s, and v in the set [0, 1].
+ *
+ * @param   Number  r       The red color value
+ * @param   Number  g       The green color value
+ * @param   Number  b       The blue color value
+ * @return  Array           The HSV representation
+ */
+function rgbToHsv(color) {
+    let r = color.r,
+        g = color.g,
+        b = color.b;
+    r /= 255, g /= 255, b /= 255;
+  
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, v = max;
+  
+    var d = max - min;
+    s = max == 0 ? 0 : d / max;
+  
+    if (max == min) {
+      h = 0; // achromatic
+    } else {
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+  
+      h /= 6;
     }
-    
-    let m = value - chroma;
-    let [r,g,b] = [r1+m, g1+m, b1+m];
-    
-    // Change r,g,b values from [0,1] to [0,255]
-    return [255*r,255*g,255*b];
-}
-
+  
+    return [ h, s, v ];
+  }
+  
+  /**
+   * Converts an HSV color value to RGB. Conversion formula
+   * adapted from http://en.wikipedia.org/wiki/HSV_color_space.
+   * Assumes h, s, and v are contained in the set [0, 1] and
+   * returns r, g, and b in the set [0, 255].
+   *
+   * @param   Number  h       The hue
+   * @param   Number  s       The saturation
+   * @param   Number  v       The value
+   * @return  Array           The RGB representation
+   */
+  function hsvToRgb(h, s, v) {
+    var r, g, b;
+  
+    var i = Math.floor(h * 6);
+    var f = h * 6 - i;
+    var p = v * (1 - s);
+    var q = v * (1 - f * s);
+    var t = v * (1 - (1 - f) * s);
+  
+    switch (i % 6) {
+      case 0: r = v, g = t, b = p; break;
+      case 1: r = q, g = v, b = p; break;
+      case 2: r = p, g = v, b = t; break;
+      case 3: r = p, g = q, b = v; break;
+      case 4: r = t, g = p, b = v; break;
+      case 5: r = v, g = p, b = q; break;
+    }
+  
+    return [ r * 255, g * 255, b * 255 ];
+  }
 
 
 export class Picker {
@@ -52,10 +90,10 @@ export class Picker {
                 let normY = y / this.size;
 
                 let i = (x + y * this.size) * 4;
-                let rgb = hsv2rgb( this.normH * 360, 1-normX, 1-normY*0.9 );
+                let rgb = hsvToRgb( this.normH, 1-normX, 1-normY*0.9 );
                 if (normY > 0.9) // draw hue gradient
                 {
-                    rgb = hsv2rgb( normX * 360, 1, 1 );
+                    rgb = hsvToRgb( normX, 1, 1 );
                 }
                 this.imageData.data[i+0] = rgb[0];
                 this.imageData.data[i+1] = rgb[1];
@@ -96,10 +134,19 @@ export class Picker {
             this.lastPickedPosition = {x: normX, y: normY};
         
         requestAnimationFrame(this.redraw.bind(this));
-        return hsv2rgb( this.normH * 360, 
+        return hsvToRgb( this.normH, 
             1-this.lastPickedPosition.x, 
             1-(this.lastPickedPosition.y*1.1) ).map( x => Math.floor(x));
     };
+
+    setColor = function(color) {
+        let hsv = rgbToHsv(color);
+        this.normH = hsv[0];
+        this.lastPickedPosition = {x: hsv[1], y: hsv[2]};
+
+        requestAnimationFrame(this.redrawSpectrum.bind(this));
+        requestAnimationFrame(this.redraw.bind(this));
+    }
 
     constructor(divId) 
     {
