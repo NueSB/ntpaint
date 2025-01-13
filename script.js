@@ -21,6 +21,18 @@ var canvas = document.querySelector("#c"),
             easing: "cubic-bezier(0,1.31,.76,1.02)"
         }
     ),
+    uiToast = document.querySelector(".toast"),
+    uiToastAnimation = uiToast.animate(
+        [
+            {opacity: 1},
+            {opacity: 0, offset: 0.5},
+            {opacity: 0}
+        ],
+        {
+            duration: 2000,
+            easing: "linear"
+        }
+    ),
     uiCharacterIcon = document.querySelector("#overlaychar-img");
 
     backbuffer.width = 1024;
@@ -199,7 +211,8 @@ function mainDraw(customClear)
     }
     
     ctx.strokeStyle = "#ff0000";
-    ctx.strokeRect( lastCoords.x - g_BrushSize / 2, lastCoords.y - g_BrushSize / 2, g_BrushSize, g_BrushSize );
+    let size = g_tools[g_currentTool].size;
+    ctx.strokeRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );
     switch(g_currentTool)
     {
         case 0:
@@ -498,8 +511,16 @@ Object.keys(g_actionKeys).forEach(action => {
     setTool(0);
     g_isLoaded = true;
     main();
+    displayToast("loaded!");
 }
 
+
+function displayToast(message)
+{
+    uiToast.innerHTML = message;
+    uiToastAnimation.cancel();
+    uiToastAnimation.play();
+}
 
 function rescaleViewCanvas()
 {
@@ -1008,6 +1029,7 @@ function drawEnd(e)
 
 function exportCopy(save)
 {
+    displayToast("exporting...");
     backbuffer.toBlob((blob) => {
         if (save)
         {
@@ -1032,6 +1054,7 @@ function exportCopy(save)
             new ClipboardItem({ "image/png": blob })
         ]);
     }, "image/png");
+    displayToast(save ? "saved!" : "copied!");
 }
 /*
 canvas.addEventListener("touchstart", e => { drawStart(e); })
