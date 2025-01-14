@@ -1081,7 +1081,6 @@ function drawMove(e)
         
         setCharacterIcon("nit_think" + index);
 
-
         if (g_currentTool == 4  && e && e.pressure)
         {
             g_BrushSize = 1 + Math.floor(
@@ -1187,7 +1186,7 @@ canvas.addEventListener("mouseup", e => { drawEnd(e) });
 */
 
 canvas.addEventListener("pointerdown", e => { drawStart(e) });
-canvas.addEventListener("pointermove", e => { drawMove(e) });
+canvas.addEventListener("pointermove", e => { window.requestAnimationFrame(drawMove.bind(this,e)) });
 window.addEventListener("pointerup", e => { 
     drawEnd(e); 
     colorPicker.mouseDown = false; 
