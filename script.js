@@ -318,9 +318,13 @@ function createLayer()
 {
     let layer = new Layer( backbuffer.width, backbuffer.height );
     g_layers.push( layer );
+    uiLayerTemplate.style.display = "";
     let layerUI = uiLayerTemplate.cloneNode(true);
-    layerUI.style = ""; // clear display-none tag
-    layerUI.onclick = setActiveLayer( g_layers.length-1 );
+    var i = g_layers.length - 1;
+    uiLayerTemplate.style.display = "none";
+    //layerUI.style = ""; // clear display-none tag
+    layerUI.querySelector("span").innerHTML = `Layer ${g_layers.length}`;
+    layerUI.onclick = ()=>{ setActiveLayer( i ) };
     layerUI.querySelector(".layer-img").appendChild( layer.canvas );
     uiLayerList.appendChild( layerUI );
 }
@@ -587,7 +591,7 @@ Object.keys(g_actionKeys).forEach(action => {
     main();
     displayToast("loaded!");
 
-    for (var i = 0; i < 2; i++)
+    for (var i = 0; i < 4; i++)
     {
         createLayer();//g_layers.push( new Layer( 1024, 1024 ) );
     }
@@ -769,7 +773,8 @@ function drawLine(start,end,brushSize,spacing)
     region.w = Math.floor(region.w) + brushSize;
     region.h = Math.floor(region.h) + brushSize;
 
-    ctx_b.strokeRect(region.x, region.y, region.w, region.h);
+    if (debug)
+        ctx_b.strokeRect(region.x, region.y, region.w, region.h);
     requestAnimationFrame(drawBackbuffer.bind(this, region));
 
     g_layerctx.globalAlpha = 1;

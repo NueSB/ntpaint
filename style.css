@@ -167,6 +167,10 @@ body {
     border: 1px solid red;
 }
 
+.layer:hover {
+    border: 6px dotted red;
+}
+
 .layer * {
     margin: 2px;
 }
