@@ -7,6 +7,7 @@
 *
 {
     text-rendering:optimizeSpeed!important;
+    font-family: "MS UI Gothic", "monospace";
 }
 
 #c {
@@ -139,6 +140,61 @@ body {
     text-align: center;
     padding: 10px;
     font-family: "MS UI Gothic", "monospace";
+    background-color: black;
+    color: white;
+    opacity: 0%;
+    animation: toast 2s forwards;
+}
+
+.layercontainer {
+    display: grid;
+    position: absolute;
+    width: 20%;
+    height: 94%;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(10, 1fr);
+    border: 1px solid red;
+}
+
+.layer {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    grid-column-gap: 0px;
+    grid-row-gap: 0px; 
+    margin: 2px;
+    background-color: #383838;
+    border: 1px solid red;
+}
+
+.layer * {
+    margin: 2px;
+}
+
+.layer-img {
+    background-color: red;
+    grid-area: 1/1/3/2;
+}
+
+.layer-text {
+    color: #AAAAAA;
+    text-shadow: 1px 1px black;
+    display: grid;
+    grid-template-rows: repeat(2, 1fr);
+    grid-area: 1/2/2/3;
+}
+
+.layer-buttons {
+    grid-area: 2/2/3/3;
+}
+
+
+.toast {
+    position: fixed;
+    margin: auto;
+    width: 10%;
+    text-align: center;
+    padding: 10px;
     background-color: black;
     color: white;
     opacity: 0%;

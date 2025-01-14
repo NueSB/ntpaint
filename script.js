@@ -184,6 +184,27 @@ function main()
     requestAnimationFrame(main);
 }
 
+// draw to the texture that contains "normal" combined layers
+function drawBackbuffer( region )
+{
+    if (region == undefined)
+    {
+        region = {x: 0, y: 0, w: backbuffer.width, h: backbuffer.height};
+    }
+
+    ctx_b.fillStyle = "#DDDDDD";
+    ctx_b.fillRect(region.x, region.y, region.w, region.h);
+    //ctx_b.clearRect(region.x, region.y, region.w, region.h);
+
+    for (var i = 0; i < g_layers.length; i++)
+    {
+        // ctx.globalCompositeOperation = LAYER MODE HERE
+        ctx_b.drawImage( g_layers[i].canvas, 
+            region.x, region.y, region.w, region.h, 
+            region.x, region.y, region.w, region.h );
+    }
+}
+
 // provide a custom region to clear if needed (cursor updates, etc)
 function mainDraw(customClear)
 {
@@ -586,9 +607,12 @@ function rescaleViewCanvas()
 
 function clearLayer()
 {
-    g_layerctx.fillStyle = g_SubColor.hex;
+    g_layerctx.fillStyle = "#FF0000";
+    g_layerctx.globalCompositeOperation = "destination-out";
     g_layerctx.fillRect(0,0,g_currentLayer.width, g_currentLayer.height);
+    g_layerctx.globalCompositeOperation = "source-over";
     pushUndoHistory();
+    drawBackbuffer();
     mainDraw();
 }
 
@@ -658,6 +682,7 @@ function undo()
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
+    drawBackbuffer();
     mainDraw();
 }
 
@@ -671,6 +696,7 @@ function redo()
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
+    drawBackbuffer();
     mainDraw();
 }
 
@@ -720,21 +746,9 @@ function drawLine(start,end,brushSize,spacing)
     region.y = Math.floor(region.y) - brushSize;
     region.w = Math.floor(region.w) + brushSize * 2;
     region.h = Math.floor(region.h) + brushSize * 2;
-    
 
-    ctx_b.fillStyle = "#DDDDDD";
-    ctx_b.fillRect(region.x, region.y, region.w, region.h);
-    //ctx_b.clearRect(region.x, region.y, region.w, region.h);
+    drawBackbuffer(region);
 
-    for (var i = 0; i < g_layers.length; i++)
-    {
-        // ctx.globalCompositeOperation = LAYER MODE HERE
-        ctx_b.drawImage( g_layers[i].canvas, 
-            region.x, region.y, region.w, region.h, 
-            region.x, region.y, region.w, region.h );
-    }
-
-        
     g_layerctx.globalAlpha = 1;
 }
 
@@ -839,7 +853,10 @@ function FFAnimation()
     }
 
     g_layerctx.putImageData(bucketAnimation.imageData, 0, 0);
+    
+    drawBackbuffer();
     mainDraw();
+
     bucketAnimation.iterations = 0;
     bucketAnimation.iterationSkipAmt *= 1.3;
     
@@ -955,7 +972,7 @@ function drawStart(e)
         
         if (e.altKey)
         {
-            eyedrop(pos.x, pos.y, 0);
+            eyedrop(pos.x, pos.y, mouseIndex);
             return;
         }
     }
