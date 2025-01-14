@@ -743,10 +743,13 @@ function drawLine(start,end,brushSize,spacing)
     // stamp every N units along line
     //ctx_b.globalAlpha = 0.01;//g_tools[g_currentTool].opacity;
     
+
     if (g_currentTool == 3)
         g_layerctx.globalCompositeOperation = "destination-out";
     else
         g_layerctx.globalCompositeOperation = "source-over";
+
+     
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
         g_layerctx.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
@@ -754,18 +757,20 @@ function drawLine(start,end,brushSize,spacing)
         pos.y += step.y;
     }
 
+    g_layerctx.globalCompositeOperation = "source-over";
     
     let region = { x: start.x < end.x ? start.x : end.x,
                    y: start.y < end.y ? start.y : end.y,
                    w: Math.abs(start.x - end.x),
                    h: Math.abs(start.y - end.y) }
 
-    region.x = Math.floor(region.x) - brushSize;
-    region.y = Math.floor(region.y) - brushSize;
-    region.w = Math.floor(region.w) + brushSize * 2;
-    region.h = Math.floor(region.h) + brushSize * 2;
+    region.x = Math.floor(region.x) - brushSize/2;
+    region.y = Math.floor(region.y) - brushSize/2;
+    region.w = Math.floor(region.w) + brushSize;
+    region.h = Math.floor(region.h) + brushSize;
 
-    drawBackbuffer(region);
+    ctx_b.strokeRect(region.x, region.y, region.w, region.h);
+    requestAnimationFrame(drawBackbuffer.bind(this, region));
 
     g_layerctx.globalAlpha = 1;
 }
@@ -1188,9 +1193,9 @@ window.addEventListener("pointerup", e => {
     colorPicker.mouseDown = false; 
 });
 
-window.addEventListener("scroll", e=>{ e.preventDefault(); })
+uiContainer.addEventListener("scroll", e=>{ e.preventDefault(); })
 
-window.addEventListener( "wheel", e=> {
+uiContainer.addEventListener( "wheel", e=> {
     e.preventDefault();
 
     if (e.shiftKey)
