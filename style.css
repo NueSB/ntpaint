@@ -172,8 +172,14 @@ body {
 }
 
 .layer-img {
-    background-color: red;
+    background-color: #585858;
     grid-area: 1/1/3/2;
+}
+
+.layer-img canvas {
+    width: 100%; /* image box size as % of container, see step 1 */
+    height: 100%; /* image box size as % of container, see step 1 */
+    object-fit: scale-down;
 }
 
 .layer-text {
@@ -187,7 +193,6 @@ body {
 .layer-buttons {
     grid-area: 2/2/3/3;
 }
-
 
 .toast {
     position: fixed;

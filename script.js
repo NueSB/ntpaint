@@ -33,7 +33,10 @@ var canvas = document.querySelector("#c"),
             easing: "linear"
         }
     ),
-    uiCharacterIcon = document.querySelector("#overlaychar-img");
+    uiCharacterIcon = document.querySelector("#overlaychar-img"),
+    uiLayerList = document.querySelector(".layercontainer"),
+    uiLayerTemplate = document.querySelector(".layer");
+//
 
     backbuffer.width = 1024;
     backbuffer.height = 1024;
@@ -311,6 +314,17 @@ function setTool(i)
     uiToolIconSpin.play();
 }
 
+function createLayer()
+{
+    let layer = new Layer( backbuffer.width, backbuffer.height );
+    g_layers.push( layer );
+    let layerUI = uiLayerTemplate.cloneNode(true);
+    layerUI.style = ""; // clear display-none tag
+    layerUI.onclick = setActiveLayer( g_layers.length-1 );
+    layerUI.querySelector(".layer-img").appendChild( layer.canvas );
+    uiLayerList.appendChild( layerUI );
+}
+
 function setActiveLayer(i)
 {
     g_currentLayer = g_layers[ i ];
@@ -575,7 +589,7 @@ Object.keys(g_actionKeys).forEach(action => {
 
     for (var i = 0; i < 2; i++)
     {
-        g_layers.push( new Layer( 1024, 1024 ) );
+        createLayer();//g_layers.push( new Layer( 1024, 1024 ) );
     }
 
     ctx_b.fillStyle = "#DDDDDD"; // background fill
@@ -585,7 +599,6 @@ Object.keys(g_actionKeys).forEach(action => {
     g_undoHistory.push( g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height) );
 
     mainDraw();
-
 }
 
 
@@ -729,6 +742,11 @@ function drawLine(start,end,brushSize,spacing)
     
     // stamp every N units along line
     //ctx_b.globalAlpha = 0.01;//g_tools[g_currentTool].opacity;
+    
+    if (g_currentTool == 3)
+        g_layerctx.globalCompositeOperation = "destination-out";
+    else
+        g_layerctx.globalCompositeOperation = "source-over";
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
         g_layerctx.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
@@ -1007,9 +1025,10 @@ function drawStart(e)
             g_BrushSize = 1 + Math.floor(
                 (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
             );
-        }            
-        case 0:
+        }
         case 3:
+            g_currentLayer.globalCompositeOperation = "destination-out";
+
         default:
             drawing = true;
             drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
@@ -1064,7 +1083,7 @@ function drawMove(e)
                 (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
             );
         }
-
+        
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
     }
     
