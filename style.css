@@ -153,7 +153,6 @@ body {
     height: 94%;
     grid-template-columns: 1fr;
     grid-template-rows: repeat(10, 1fr);
-    border: 1px solid red;
 }
 
 .layer {
@@ -164,11 +163,16 @@ body {
     grid-row-gap: 0px; 
     margin: 2px;
     background-color: #383838;
-    border: 1px solid red;
+    border: 1px solid black;
+    box-shadow: 6px 6px 0px rgba(0,0,0,0.4);
+}
+
+.layer .active {
+    background-color: #AAAAAA;
 }
 
 .layer:hover {
-    border: 6px dotted red;
+    filter:invert();
 }
 
 .layer * {

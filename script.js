@@ -59,12 +59,15 @@ ctx.fillText("loading gimme a sec", canvas.width/2-50, canvas.height/2);
 class Layer {
     canvas = undefined;
     ctx = undefined;
+    name = "X";
     width = 0;
     height = 0;
+    isDirty = false;
 
-    constructor(width, height)
+    constructor(width, height, name = "X")
     {
         this.canvas = document.createElement("canvas");
+        this.name = name;
         this.canvas.width = width;
         this.canvas.height = height;
         this.ctx = this.canvas.getContext("2d");
@@ -170,7 +173,7 @@ let debugcanvas = document.createElement("canvas");
 debugcanvas.height = backbuffer.height;
 debugcanvas.width = backbuffer.width;
 var ctx_dbg = debugcanvas.getContext("2d");
-let debug = false;
+let debug = true;
 
 
 function main()
@@ -252,11 +255,14 @@ function mainDraw(customClear)
         let j = 0;
         for(var i = g_undoHistory.length-1; i > Math.max(0, g_undoHistory.length - Math.floor(512/32)); i--)
         {
-            ctx_dbg.putImageData(g_undoHistory[i], 0, 0);
+            ctx.font = "50px serif";
+            ctx.fillText(g_undoHistory[i].layer.name, j * size + j, canvas.height - 256);
+            //ctx.fillText(g_undoHistory[i].layer);
+            ctx_dbg.putImageData(g_undoHistory[i].data, 0, 0);
             //ctx.fillRect(i * size + i, canvas.height - size, size, size);
-            ctx.drawImage(debugcanvas, j * size + j, canvas.height - size, size, size);
+            ctx.drawImage(debugcanvas, j * size + j, canvas.height - size - 220, size, size);
             ctx.strokeStyle = (g_undoHistory.length - i) - 1 == g_undoPosition   ? "#00ff00" : "#ff0000";
-            ctx.strokeRect(j * size + j, canvas.height - size, size, size);
+            ctx.strokeRect(j * size + j, canvas.height - size - 220, size, size);
             j++;
         }
     }
@@ -278,8 +284,6 @@ function mainDraw(customClear)
     
     ctx.scale( 1/g_viewScale, 1/g_viewScale );
     ctx.translate(-g_viewTransform.x, -g_viewTransform.y);
-
-    
 }
 
 function setBrushSize( i )
@@ -314,15 +318,17 @@ function setTool(i)
     uiToolIconSpin.play();
 }
 
-function createLayer()
+function createLayer(index)
 {
-    let layer = new Layer( backbuffer.width, backbuffer.height );
+    let layer = new Layer( backbuffer.width, backbuffer.height, index.toString());
+    // todo: reordering logic if index != undefined
     g_layers.push( layer );
-    uiLayerTemplate.style.display = "";
+    
+    uiLayerTemplate.style = "";
     let layerUI = uiLayerTemplate.cloneNode(true);
     var i = g_layers.length - 1;
     uiLayerTemplate.style.display = "none";
-    //layerUI.style = ""; // clear display-none tag
+
     layerUI.querySelector("span").innerHTML = `Layer ${g_layers.length}`;
     layerUI.onclick = ()=>{ setActiveLayer( i ) };
     layerUI.querySelector(".layer-img").appendChild( layer.canvas );
@@ -331,8 +337,26 @@ function createLayer()
 
 function setActiveLayer(i)
 {
-    g_currentLayer = g_layers[ i ];
+    if (typeof i == typeof 0)
+        g_currentLayer = g_layers[ i ];
+    else if (typeof i == "object")
+        g_currentLayer = i;
+
     g_layerctx = g_currentLayer.ctx;
+    if (isCanvasBlank(g_currentLayer.canvas, g_currentLayer.ctx))
+    {
+        pushUndoHistory();
+    }
+}
+
+// https://stackoverflow.com/questions/17386707/how-to-check-if-a-canvas-is-blank
+function isCanvasBlank(canvas, ctx) 
+{
+    const pixelBuffer = new Uint32Array(
+      ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer
+    );
+  
+    return !pixelBuffer.some(color => color !== 0);
 }
 
 var g_viewTransform = Vec2(0,0);
@@ -536,7 +560,7 @@ var g_charAnimation = undefined;
 var lastCoords_raw = Vec2(0,0);
 
 var g_layers = [];
-var g_currentLayer = 0;
+var g_currentLayer = undefined;
 var g_layerctx = undefined;
 
 
@@ -593,14 +617,18 @@ Object.keys(g_actionKeys).forEach(action => {
 
     for (var i = 0; i < 4; i++)
     {
-        createLayer();//g_layers.push( new Layer( 1024, 1024 ) );
+        createLayer(i);
     }
 
     ctx_b.fillStyle = "#DDDDDD"; // background fill
     ctx_b.fillRect(0,0,backbuffer.width, backbuffer.height);
 
     setActiveLayer( 0 );
-    g_undoHistory.push( g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height) );
+
+    g_undoHistory.push( {
+        layer: g_currentLayer, 
+        data: g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
+    } );
 
     mainDraw();
 }
@@ -695,7 +723,10 @@ function undo()
         g_undoPosition = g_undoHistory.length-1;
     }
 
-    g_layerctx.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
+    let undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
+
+    setActiveLayer( undoValue.layer );
+    g_layerctx.putImageData(undoValue.data, 0, 0);
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
@@ -709,8 +740,11 @@ function redo()
     if (g_undoPosition < 0)
         g_undoPosition = 0;
 
-    g_layerctx.putImageData(g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ], 0, 0);
+    let undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
 
+    setActiveLayer( undoValue.layer )
+    g_layerctx.putImageData(undoValue.data, 0, 0);
+    
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
     drawBackbuffer();
@@ -732,7 +766,11 @@ function pushUndoHistory()
     {
         g_undoHistory.shift();
     }
-    g_undoHistory.push( g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height) );
+
+    g_undoHistory.push( {
+        layer: g_currentLayer, 
+        data: g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
+    } );
 }
 
 function drawLine(start,end,brushSize,spacing)
