@@ -22,7 +22,7 @@ body {
 }
 
 .drawcontainer {
-    background-color: #3a3a3a;
+    background-color: black;///#3a3a3a;
     display: grid;
     height: 95%;
     grid-template-columns: 90% 10%;
@@ -125,6 +125,15 @@ body {
     grid-row-gap: 2px; 
 }
 
+.noselect {
+    -webkit-touch-callout: none;
+      -webkit-user-select: none;
+       -khtml-user-select: none;
+         -moz-user-select: none;
+          -ms-user-select: none;
+              user-select: none;
+  }
+
 .colorcontainer div {
     border: 2px solid black;
     box-shadow: 6px 6px rgb(0 0 0 / 20%);
@@ -134,6 +143,7 @@ body {
 #subpicker { grid-area: 2 / 2 / 4 / 4; } 
 
 .toast {
+    z-index: 40;
     position: fixed;
     margin: auto;
     width: 10%;
@@ -148,20 +158,18 @@ body {
 
 .layercontainer {
     display: grid;
-    position: absolute;
-    width: 20%;
-    height: 94%;
-    grid-template-columns: 1fr;
-    grid-template-rows: repeat(10, 1fr);
+    display: none;
+    position: fixed;
+    width: 10%;
 }
 
 .layer {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(2, 1fr);
+    grid-template-rows: repeat(1, 1fr);
     grid-column-gap: 0px;
     grid-row-gap: 0px; 
-    margin: 2px;
+    margin: 4px;
     background-color: #383838;
     border: 1px solid black;
     box-shadow: 6px 6px 0px rgba(0,0,0,0.4);

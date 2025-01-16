@@ -1,10 +1,11 @@
 import { Color } from "./color.js";
 import { Picker } from "./picker.js";
+import { Graphics } from "./graphics.js";
 
 "use strict";
 
 var canvas = document.querySelector("#c"),
-	ctx = canvas.getContext("2d"),
+	gl = canvas.getContext("webgl2"),
     backbuffer = document.createElement("canvas"),
     drawing = false,
     lastCoords = { x:-1, y:-1 },
@@ -37,7 +38,6 @@ var canvas = document.querySelector("#c"),
     uiLayerList = document.querySelector(".layercontainer"),
     uiLayerTemplate = document.querySelector(".layer");
 //
-
     backbuffer.width = 1024;
     backbuffer.height = 1024;
 
@@ -53,7 +53,7 @@ var colorPicker = new Picker("#colorpicker");
 
 var ctx_b = backbuffer.getContext("2d");
 ctx_b.clearRect(0,0,backbuffer.width, backbuffer.height);
-ctx.fillText("loading gimme a sec", canvas.width/2-50, canvas.height/2);
+//ctx.fillText("loading gimme a sec", canvas.width/2-50, canvas.height/2);
 
 
 class Layer {
@@ -173,7 +173,7 @@ let debugcanvas = document.createElement("canvas");
 debugcanvas.height = backbuffer.height;
 debugcanvas.width = backbuffer.width;
 var ctx_dbg = debugcanvas.getContext("2d");
-let debug = true;
+let debug = false;
 
 
 function main()
@@ -202,7 +202,7 @@ function drawBackbuffer( region )
     ctx_b.fillRect(region.x, region.y, region.w, region.h);
     //ctx_b.clearRect(region.x, region.y, region.w, region.h);
 
-    for (var i = 0; i < g_layers.length; i++)
+    for (var i = g_layers.length-1; i >= 0 ; i--)
     {
         // ctx.globalCompositeOperation = LAYER MODE HERE
         ctx_b.drawImage( g_layers[i].canvas, 
@@ -222,22 +222,22 @@ function mainDraw(customClear)
         g_drawQueue.push(customClear || undefined);
         return;
     }
-
-    ctx.fillStyle = "#3A3A3A";
-    ctx.fillRect(0,0,canvas.width, canvas.height);
+    Graphics.updateTextures();
+    Graphics.drawColor = new Color("#3A3A3A");
+    Graphics.fillRect(0,0,canvas.width, canvas.height);
     
-    ctx.translate(g_viewTransform.x, g_viewTransform.y);
-    ctx.scale( g_viewScale, g_viewScale );
-
-    ctx.lineWidth = 1;
+    Graphics.translate(g_viewTransform.x, g_viewTransform.y);
+    Graphics.scale( g_viewScale, g_viewScale );
 
     let region = {x: 0, y: 0, w: canvas.width, h: canvas.height};
 
     
     //if (!customClear || customClear.force)
     {
-        ctx.clearRect(0,0, canvas.width, canvas.height);
-        ctx.drawImage( backbuffer, 0, 0 );
+        Graphics.clearRect(0,0, canvas.width, canvas.height);
+        Graphics.drawColor = Color.white;
+        Graphics.fillRect(0, 0, backbuffer.width, backbuffer.height);
+        //Graphics.drawImage( backbuffer, 0, 0 );
     }/*
     else
     {
@@ -246,6 +246,7 @@ function mainDraw(customClear)
     }
     */
 
+    /*
     if (debug)
     {
         ctx.clearRect(0,0, canvas.width, canvas.height);
@@ -259,17 +260,18 @@ function mainDraw(customClear)
             ctx.fillText(g_undoHistory[i].layer.name, j * size + j, canvas.height - 256);
             //ctx.fillText(g_undoHistory[i].layer);
             ctx_dbg.putImageData(g_undoHistory[i].data, 0, 0);
-            //ctx.fillRect(i * size + i, canvas.height - size, size, size);
+            //Graphics.fillRect(i * size + i, canvas.height - size, size, size);
             ctx.drawImage(debugcanvas, j * size + j, canvas.height - size - 220, size, size);
             ctx.strokeStyle = (g_undoHistory.length - i) - 1 == g_undoPosition   ? "#00ff00" : "#ff0000";
             ctx.strokeRect(j * size + j, canvas.height - size - 220, size, size);
             j++;
         }
     }
-    
-    ctx.strokeStyle = "#ff0000";
+    */
+   
+    Graphics.drawColor = Color.red;
     let size = g_tools[g_currentTool].size;
-    ctx.strokeRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );
+    Graphics.lineRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );
     switch(g_currentTool)
     {
         case 0:
@@ -282,8 +284,8 @@ function mainDraw(customClear)
             break;
     }
     
-    ctx.scale( 1/g_viewScale, 1/g_viewScale );
-    ctx.translate(-g_viewTransform.x, -g_viewTransform.y);
+    Graphics.scale( 1/g_viewScale, 1/g_viewScale );
+    Graphics.translate(-g_viewTransform.x, -g_viewTransform.y);
 }
 
 function setBrushSize( i )
@@ -411,6 +413,10 @@ var g_tools = [
         texture: undefined,
         opacity: 1,
     },
+    {
+        name: "hand",
+        size: 16,
+    }
 ]
 var g_actionKeys = {
     undo: {
@@ -608,9 +614,13 @@ Object.keys(g_actionKeys).forEach(action => {
     button.onclick = function() { clearLayer() };
     uiBottomToolbar.appendChild(button);
 
+    
+    Graphics.setup( gl );
+
     rescaleViewCanvas();
     setColor(1, Color.white);
     setTool(0);
+
     g_isLoaded = true;
     main();
     displayToast("loaded!");
@@ -646,15 +656,19 @@ function rescaleViewCanvas()
     let style = window.getComputedStyle(canvas.parentNode);
     canvas.width = parseInt(style.width.slice(0, -2));
     canvas.height = parseInt(style.height.slice(0, -2));
+
+    gl.viewport( 0, 0, canvas.width, canvas.height );
     mainDraw( { force: true } );
 }
 
 
 function clearLayer()
 {
+    // STUB
+    return;
     g_layerctx.fillStyle = "#FF0000";
     g_layerctx.globalCompositeOperation = "destination-out";
-    g_layerctx.fillRect(0,0,g_currentLayer.width, g_currentLayer.height);
+    Graphics.fillRect(0,0,g_currentLayer.width, g_currentLayer.height);
     g_layerctx.globalCompositeOperation = "source-over";
     pushUndoHistory();
     drawBackbuffer();
@@ -694,6 +708,8 @@ async function pasteImage(position)
           reader.onload = () => {
             const img = document.createElement('img');
             img.onload = function() {
+                // STUB
+                return;
                 g_layerctx.drawImage(img, position.x, position.y);
                 pushUndoHistory();
             };
@@ -717,6 +733,8 @@ function swapColors()
 
 function undo()
 {
+    // STUB
+    return;
     g_undoPosition += 1;
     if (g_undoPosition > g_undoHistory.length-1)
     {
@@ -736,6 +754,8 @@ function undo()
 
 function redo()
 {
+    // STUB
+    return;
     g_undoPosition -= 1;
     if (g_undoPosition < 0)
         g_undoPosition = 0;
@@ -753,6 +773,8 @@ function redo()
 
 function pushUndoHistory()
 {
+    // STUB
+    return;
     if (g_undoPosition != 0)
     {
         for( var i = 0; i < g_undoPosition; i++)
@@ -785,21 +807,21 @@ function drawLine(start,end,brushSize,spacing)
     // stamp every N units along line
     //ctx_b.globalAlpha = 0.01;//g_tools[g_currentTool].opacity;
     
-
+    /*
     if (g_currentTool == 3)
         g_layerctx.globalCompositeOperation = "destination-out";
     else
         g_layerctx.globalCompositeOperation = "source-over";
-
+    */
      
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
-        g_layerctx.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
+        Graphics.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
         pos.x += step.x;
         pos.y += step.y;
     }
 
-    g_layerctx.globalCompositeOperation = "source-over";
+    //g_layerctx.globalCompositeOperation = "source-over";
     
     let region = { x: start.x < end.x ? start.x : end.x,
                    y: start.y < end.y ? start.y : end.y,
@@ -811,11 +833,13 @@ function drawLine(start,end,brushSize,spacing)
     region.w = Math.floor(region.w) + brushSize;
     region.h = Math.floor(region.h) + brushSize;
 
+    /*
     if (debug)
         ctx_b.strokeRect(region.x, region.y, region.w, region.h);
+    */
     requestAnimationFrame(drawBackbuffer.bind(this, region));
 
-    g_layerctx.globalAlpha = 1;
+    //g_layerctx.globalAlpha = 1;
 }
 
 function setColor(colorIndex, color)
@@ -1254,7 +1278,7 @@ uiContainer.addEventListener( "wheel", e=> {
         lastCoords = lastCoords_raw.sub( g_viewTransform ).scale( 1/g_viewScale );
 
 
-    ctx.imageSmoothingEnabled = g_viewScale < 1;
+    gl.imageSmoothingEnabled = g_viewScale < 1;
     
     mainDraw();
 }, { passive: false });

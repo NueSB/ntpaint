@@ -72,7 +72,7 @@ export class Color
     static black = new Color(0, 0, 0);
 }
 
-export const graphics = {
+export const Graphics = {
     gl: null, // webgl rendering context
     drawColor: new Color(255, 255, 255, 255),
     tintColor: new Color(255, 255, 255, 0),
@@ -211,6 +211,12 @@ export const graphics = {
         this.gl.uniform4f(this.currentShader.vars['uColor'].location,
             this.drawColor.r / 255, this.drawColor.g / 255, this.drawColor.b / 255, this.globalAlpha);
         this.drawRect(x, y, w, h, z);
+    },
+
+    clearRect: function(x,y,w,h)
+    {
+        // STUB
+        return;
     },
 
     setShader: function(shader)
@@ -531,8 +537,9 @@ export const graphics = {
         return rTexture;
     },
     
-    setup: function()
+    setup: function(igl)
     {
+        this.gl = igl;
         this.posBuffer = this.gl.createBuffer();
 
         this.meshes.quad = this.gl.createBuffer();
@@ -780,14 +787,6 @@ export const graphics = {
                         outCol.rgb *= uColor.rgb;
                         outCol.rgb = mix(outCol.rgb, vec3(0.0), clamp(depth, 0.0, 1.0));
                         outCol.a *= uColor.a;
-                        #ifdef DEBUG_DEPTH
-                            float A = -1.0;
-                            float B =  1.0;
-                            float C = 1.0;
-                            float D = 0.0;
-                            float X = depth;
-                            outCol.rgb = vec3( (X-A)/(B-A) * (D-C) + C);
-                        #endif
                     }`
         },
         "singleLight":
