@@ -724,30 +724,35 @@ Object.keys(g_actionKeys).forEach(action => {
             if (!g_isLoaded) 
                 return;
             Graphics.setRenderTarget( "backbuffer" );
-            Graphics.setShader("baseColor_batch");
-            // setup all attributes
-            gl.bindVertexArray(vao);
-
-            for(var i = 0; i < numInstances; i++)
             {
-                m4.projection(matrices[i]);
-                m4.translation(-0.5 + i * 0.25, 0, 0, matrices[i]);
+                Graphics.setShader("baseColor_batch");
+                // setup all attributes
+                gl.bindVertexArray(vao);
+
+                for(var i = 0; i < numInstances; i++)
+                {
+                    m4.multiply(m4.projection(1024,1024,400), m4.translation(0,0,0), matrices[i]);
+                    m4.multiply(matrices[i], m4.scaling(32, 32, 1), matrices[i]);
+                    //console.log(matrices[i]);
+                    //m4.multiply(m4.identity(), m4.translation(0,0,0), matrices[i]);
+                    //m4.multiply(matrices[i], m4.identity(), matrices[i]);
+                }
+                
+                // upload the new matrix data
+                gl.bindBuffer(gl.ARRAY_BUFFER, matrixBuffer);
+                gl.bufferSubData(gl.ARRAY_BUFFER, 0, matrixData);
+
+                gl.drawArraysInstanced(
+                    gl.TRIANGLES,
+                    0,              // offset
+                    6,              // num vertices per instance
+                    numInstances,  // num instances
+                );
             }
-            
-            // upload the new matrix data
-            gl.bindBuffer(gl.ARRAY_BUFFER, matrixBuffer);
-            gl.bufferSubData(gl.ARRAY_BUFFER, 0, matrixData);
-
-            gl.drawArraysInstanced(
-                gl.TRIANGLES,
-                0,             // offset
-                6,   // num vertices per instance
-                numInstances,  // num instances
-            );
-
-        Graphics.setRenderTarget(null);
+            Graphics.setRenderTarget(null);
         }
         render();
+        
     // FIXME: readpixels
     /*
     g_undoHistory.push( {
