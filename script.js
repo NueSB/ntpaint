@@ -237,9 +237,11 @@ function mainDraw(customClear)
     //if (!customClear || customClear.force)
     {
         Graphics.clearRect(0,0, canvas.width, canvas.height);
-        Graphics.drawColor = Color.black;
+        Graphics.drawColor = new Color("#999999");
         Graphics.fillRect(0, 0, canvasWidth, canvasHeight);
-        Graphics.drawImage( "backbuffer", 0, 0 );
+        Graphics.drawColor = Color.white;
+        Graphics.tintColor = Color.white;
+        Graphics.drawImage( "backbuffer", 0, 0, 1024, 1024);
     }/*
     else
     {
@@ -625,7 +627,7 @@ Object.keys(g_actionKeys).forEach(action => {
     
 
     Graphics.createRenderTarget("backbuffer", 1024, 1024);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    Graphics.setRenderTarget("backbuffer");
 
     rescaleViewCanvas();
     setColor(1, Color.white);
@@ -634,6 +636,7 @@ Object.keys(g_actionKeys).forEach(action => {
     g_isLoaded = true;
     main();
     displayToast("loaded!");
+    
 
     for (var i = 0; i < 4; i++)
     {
@@ -641,10 +644,13 @@ Object.keys(g_actionKeys).forEach(action => {
     }
 
     Graphics.setRenderTarget("backbuffer");
+        gl.viewport(0, 0, canvasWidth, canvasHeight);
+        gl.enable(gl.BLEND);
         Graphics.drawColor = new Color("#DDDDDD"); // background fill
         Graphics.fillRect(0,0, canvasWidth, canvasHeight);
+        Graphics.drawColor = Color.black;
+        Graphics.fillRect(2, 2, 32, 32);
     Graphics.setRenderTarget(null);
-
     setActiveLayer( 0 );
 
     // FIXME: readpixels
@@ -673,6 +679,7 @@ function rescaleViewCanvas()
     canvas.height = parseInt(style.height.slice(0, -2));
 
     gl.viewport( 0, 0, canvas.width, canvas.height );
+
     mainDraw( { force: true } );
 }
 
@@ -830,7 +837,7 @@ function drawLine(start,end,brushSize,spacing)
     */
 
     Graphics.setRenderTarget( "backbuffer" );
-     
+    Graphics.drawColor = Color.red;
         for( var i = 0; i <= Math.floor(dist / spacing); i++)
         {
             Graphics.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );

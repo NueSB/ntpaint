@@ -277,7 +277,6 @@ export const Graphics = {
         this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_2D, texture.texture);
 
-        this.gl.uniform2f(this.currentShader.vars['uResolution'].location, this.gl.canvas.width, this.gl.canvas.height);
         this.gl.uniform1i(this.currentShader.vars['uTexture'].location, 0);
         this.gl.uniform4f(this.currentShader.vars['uColor'].location,
             this.tintColor.r / 255,
@@ -781,17 +780,11 @@ export const Graphics = {
                     uniform mat4 uMatrix;
                     uniform mat3 uTexMatrix;
                     out vec2 vTexcoord;
-                    out float depth;
                     
                     void main()
                     {
                         gl_Position = uMatrix * aPos;
                         vTexcoord = (uTexMatrix * vec3(aTexcoord, 1)).xy;
-                        depth = gl_Position.z + gl_Position.y - 0.4;
-                        if (gl_Position.z == -0.0)
-                        {
-                            depth = 0.0;
-                        }
                     }`,
 
             frag: `#version 300 es
@@ -800,7 +793,6 @@ export const Graphics = {
                     precision mediump float;
                     
                     in vec2 vTexcoord;
-                    in float depth;
                     uniform sampler2D uTexture;
                     out vec4 outCol;
                     uniform vec4 uColor;
@@ -808,9 +800,10 @@ export const Graphics = {
                     void main()
                     {
                         outCol = texture(uTexture, vTexcoord);
-                        if (outCol.a < 0.01)
-                            discard;
+                        //if (outCol.a < 0.01)
+                        //    discard;
                         outCol.rgb *= uColor.rgb;
+                        //outCol.rgb = vec3(vTexcoord.xy,0.0);
                         outCol.a *= uColor.a;
                     }`
         },
