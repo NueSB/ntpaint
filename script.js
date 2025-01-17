@@ -6,7 +6,6 @@ import { Graphics } from "./graphics.js";
 
 var canvas = document.querySelector("#c"),
 	gl = canvas.getContext("webgl2"),
-    backbuffer = document.createElement("canvas"),
     drawing = false,
     lastCoords = { x:-1, y:-1 },
     uiContainer = document.querySelector(".drawcontainer"),
@@ -38,8 +37,8 @@ var canvas = document.querySelector("#c"),
     uiLayerList = document.querySelector(".layercontainer"),
     uiLayerTemplate = document.querySelector(".layer");
 //
-    backbuffer.width = 1024;
-    backbuffer.height = 1024;
+    var canvasWidth = 1024;
+    var canvasHeight = 1024;
 
 var subPicker = document.createElement( "div" );
     subPicker.id = "subpicker";
@@ -51,28 +50,25 @@ var mainPicker = document.createElement( "div" );
 
 var colorPicker = new Picker("#colorpicker");
 
-var ctx_b = backbuffer.getContext("2d");
-ctx_b.clearRect(0,0,backbuffer.width, backbuffer.height);
-//ctx.fillText("loading gimme a sec", canvas.width/2-50, canvas.height/2);
-
 
 class Layer {
-    canvas = undefined;
-    ctx = undefined;
     name = "X";
     width = 0;
     height = 0;
+    renderTarget = 0;
+    id = 0;
     isDirty = false;
 
-    constructor(width, height, name = "X")
+    constructor(name = "X")
     {
-        this.canvas = document.createElement("canvas");
         this.name = name;
-        this.canvas.width = width;
-        this.canvas.height = height;
-        this.ctx = this.canvas.getContext("2d");
-        this.width = width;
-        this.height = height;
+        // id is used for reference in the graphics api, since textures use a string. current date timestamp - layer list
+        // length in case of multiple being created on a single timestep
+        this.id = Date.now() - g_layers.length;
+        this.renderTarget = Graphics.createRenderTarget( this.id );
+        // might be useful later for "usable area" compression or so. unused atm
+        this.width = canvasWidth;
+        this.height = canvasHeight;
     }
 
     resize(w, h)
@@ -170,8 +166,8 @@ const Vec2 = function(x,y)
 }
 
 let debugcanvas = document.createElement("canvas");
-debugcanvas.height = backbuffer.height;
-debugcanvas.width = backbuffer.width;
+debugcanvas.height = canvasHeight;
+debugcanvas.width = canvasWidth;
 var ctx_dbg = debugcanvas.getContext("2d");
 let debug = false;
 
@@ -195,20 +191,22 @@ function drawBackbuffer( region )
 {
     if (region == undefined)
     {
-        region = {x: 0, y: 0, w: backbuffer.width, h: backbuffer.height};
+        region = {x: 0, y: 0, w: canvasWidth, h: canvasHeight};
     }
 
-    ctx_b.fillStyle = "#DDDDDD";
-    ctx_b.fillRect(region.x, region.y, region.w, region.h);
-    //ctx_b.clearRect(region.x, region.y, region.w, region.h);
+    Graphics.setRenderTarget("backbuffer");
+        Graphics.drawColor = new Color("#DDDDDD");
+        Graphics.fillRect(region.x, region.y, region.w, region.h);
+        //ctx_b.clearRect(region.x, region.y, region.w, region.h);
 
-    for (var i = g_layers.length-1; i >= 0 ; i--)
-    {
-        // ctx.globalCompositeOperation = LAYER MODE HERE
-        ctx_b.drawImage( g_layers[i].canvas, 
-            region.x, region.y, region.w, region.h, 
-            region.x, region.y, region.w, region.h );
-    }
+        for (var i = g_layers.length-1; i >= 0 ; i--)
+        {
+            // ctx.globalCompositeOperation = LAYER MODE HERE
+                Graphics.drawImage( g_layers[i].renderTarget.texture, 
+                    region.x, region.y, region.w, region.h, 
+                    region.x, region.y, region.w, region.h );
+        }
+    Graphics.setRenderTarget(null);
 }
 
 // provide a custom region to clear if needed (cursor updates, etc)
@@ -222,6 +220,9 @@ function mainDraw(customClear)
         g_drawQueue.push(customClear || undefined);
         return;
     }
+
+    Graphics.setRenderTarget(null);
+
     Graphics.updateTextures();
     Graphics.drawColor = new Color("#3A3A3A");
     Graphics.fillRect(0,0,canvas.width, canvas.height);
@@ -236,7 +237,7 @@ function mainDraw(customClear)
     {
         Graphics.clearRect(0,0, canvas.width, canvas.height);
         Graphics.drawColor = Color.white;
-        Graphics.fillRect(0, 0, backbuffer.width, backbuffer.height);
+        Graphics.fillRect(0, 0, canvasWidth, canvasHeight);
         //Graphics.drawImage( backbuffer, 0, 0 );
     }/*
     else
@@ -322,7 +323,7 @@ function setTool(i)
 
 function createLayer(index)
 {
-    let layer = new Layer( backbuffer.width, backbuffer.height, index.toString());
+    let layer = new Layer( "Layer " + index.toString() );
     // todo: reordering logic if index != undefined
     g_layers.push( layer );
     
@@ -333,7 +334,7 @@ function createLayer(index)
 
     layerUI.querySelector("span").innerHTML = `Layer ${g_layers.length}`;
     layerUI.onclick = ()=>{ setActiveLayer( i ) };
-    layerUI.querySelector(".layer-img").appendChild( layer.canvas );
+    //layerUI.querySelector(".layer-img").appendChild( layer.canvas );
     uiLayerList.appendChild( layerUI );
 }
 
@@ -354,11 +355,15 @@ function setActiveLayer(i)
 // https://stackoverflow.com/questions/17386707/how-to-check-if-a-canvas-is-blank
 function isCanvasBlank(canvas, ctx) 
 {
+    // STUB
+    return false;
+    /*
     const pixelBuffer = new Uint32Array(
       ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer
     );
   
     return !pixelBuffer.some(color => color !== 0);
+    */
 }
 
 var g_viewTransform = Vec2(0,0);
@@ -616,6 +621,10 @@ Object.keys(g_actionKeys).forEach(action => {
 
     
     Graphics.setup( gl );
+    
+
+    Graphics.createRenderTarget("backbuffer", 1024, 1024);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     rescaleViewCanvas();
     setColor(1, Color.white);
@@ -630,15 +639,20 @@ Object.keys(g_actionKeys).forEach(action => {
         createLayer(i);
     }
 
-    ctx_b.fillStyle = "#DDDDDD"; // background fill
-    ctx_b.fillRect(0,0,backbuffer.width, backbuffer.height);
+    Graphics.setRenderTarget("backbuffer");
+        Graphics.drawColor = new Color("#DDDDDD"); // background fill
+        Graphics.fillRect(0,0, canvasWidth, canvasHeight);
+    Graphics.setRenderTarget(null);
 
     setActiveLayer( 0 );
 
+    // FIXME: readpixels
+    /*
     g_undoHistory.push( {
         layer: g_currentLayer, 
         data: g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
     } );
+    */
 
     mainDraw();
 }
@@ -813,14 +827,17 @@ function drawLine(start,end,brushSize,spacing)
     else
         g_layerctx.globalCompositeOperation = "source-over";
     */
-     
-    for( var i = 0; i <= Math.floor(dist / spacing); i++)
-    {
-        Graphics.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
-        pos.x += step.x;
-        pos.y += step.y;
-    }
 
+    Graphics.setRenderTarget( g_currentLayer.id );
+     
+        for( var i = 0; i <= Math.floor(dist / spacing); i++)
+        {
+            Graphics.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
+            pos.x += step.x;
+            pos.y += step.y;
+        }
+
+    Graphics.setRenderTarget(null);
     //g_layerctx.globalCompositeOperation = "source-over";
     
     let region = { x: start.x < end.x ? start.x : end.x,
@@ -1067,7 +1084,7 @@ function drawStart(e)
         }
     }
 
-    g_layerctx.fillStyle = g_currentColor.toString();
+    Graphics.drawColor = g_currentColor;
 
     let index = 1;
     if (lastCoords.y > canvas.height * 0.8)

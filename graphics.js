@@ -311,7 +311,7 @@ export const Graphics = {
 
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
 
         let textureObj = {
@@ -392,12 +392,34 @@ export const Graphics = {
         this.queues.textures = [];
     },
 
-    createRenderTarget: function(name, fbo, texture)
+    createRenderTarget: function(name, width, height)
     {
-        this.renderTargets[name] = {
-            fbo: fbo,
+        const texture = this.createGLTexture( width, height );
+        
+        this.textures[name] = {
+            width: this.gl.canvas.width,
+            height: this.gl.canvas.height,
             texture: texture
-        }
+        };
+
+        const FBO = this.gl.createFramebuffer();
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, FBO);
+        this.gl.framebufferTexture2D(
+            this.gl.FRAMEBUFFER,
+            this.gl.COLOR_ATTACHMENT0,
+            this.gl.TEXTURE_2D,
+            texture,
+            0
+        );
+
+        const renderTarget = {
+            fbo: FBO,
+            texture: texture
+        };
+
+        this.renderTargets[name] = renderTarget;
+
+        return renderTarget;
     },
 
     setRenderTarget: function(name)
@@ -531,7 +553,7 @@ export const Graphics = {
         
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
 
         return rTexture;
@@ -616,7 +638,11 @@ export const Graphics = {
             depthTexture,
             0
         );
-        this.createRenderTarget("screenBuffer", screenFBO, this.textures["screenBuffer"]);
+
+        this.renderTargets["screenBuffer"] = {
+            fbo: screenFBO,
+            texture: this.textures["screenBuffer"]
+        }
 
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     },
