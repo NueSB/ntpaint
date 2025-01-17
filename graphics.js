@@ -135,11 +135,13 @@ export const Graphics = {
 
     lineTo: function(x1, y1, x2, y2)
     {
+        const viewport = this.gl.getParameter(this.gl.VIEWPORT);
         let matrix = m4.projection(
-            this.gl.canvas.width,
-            this.gl.canvas.height,
+            viewport[2],
+            viewport[3],
             400
         );
+        
 
         matrix = m4.multiply(matrix, this.globalTransform);
         
@@ -166,11 +168,13 @@ export const Graphics = {
 
     lineRect: function(x,y,w,h,z=0)
     {
+        const viewport = this.gl.getParameter(this.gl.VIEWPORT);
         let matrix = m4.projection(
-            this.gl.canvas.width,
-            this.gl.canvas.height,
+            viewport[2],
+            viewport[3],
             400
         );
+        
 
         matrix = m4.multiply(matrix, this.globalTransform);
         matrix = m4.multiply(matrix, m4.translation(x,y,z));
@@ -188,9 +192,10 @@ export const Graphics = {
 
     drawRect: function(x, y, w, h, z, type=0)
     {
+        const viewport = this.gl.getParameter(this.gl.VIEWPORT);
         let matrix = m4.projection(
-            this.gl.canvas.width,
-            this.gl.canvas.height,
+            viewport[2],
+            viewport[3],
             400
         );
         
@@ -393,13 +398,14 @@ export const Graphics = {
 
     createRenderTarget: function(name, width, height)
     {
-        const texture = this.createGLTexture( width, height );
+        const glTexture = this.createGLTexture( width, height );
         
-        this.textures[name] = {
-            width: this.gl.canvas.width,
-            height: this.gl.canvas.height,
-            texture: texture
+        const texture = {
+            width: width,
+            height: height,
+            texture: glTexture
         };
+        this.textures[name] = texture;
 
         const FBO = this.gl.createFramebuffer();
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, FBO);
@@ -407,7 +413,7 @@ export const Graphics = {
             this.gl.FRAMEBUFFER,
             this.gl.COLOR_ATTACHMENT0,
             this.gl.TEXTURE_2D,
-            texture,
+            texture.texture,
             0
         );
 
@@ -417,6 +423,7 @@ export const Graphics = {
         };
 
         this.renderTargets[name] = renderTarget;
+        console.log(name, renderTarget);
 
         return renderTarget;
     },
@@ -532,6 +539,11 @@ export const Graphics = {
     scale: function(w, h)
     {
         this.globalTransform = m4.multiply(this.globalTransform, m4.scaling(w, h, 1));  
+    },
+
+    resetTransform: function()
+    {
+        this.globalTransform = m4.identity();
     },
 
     // BINDS THE GL TEXTURE AND DOES NOT RETURN IT! CAREFUL!!
@@ -800,8 +812,8 @@ export const Graphics = {
                     void main()
                     {
                         outCol = texture(uTexture, vTexcoord);
-                        //if (outCol.a < 0.01)
-                        //    discard;
+                        if (outCol.a < 0.01)
+                            discard;
                         outCol.rgb *= uColor.rgb;
                         //outCol.rgb = vec3(vTexcoord.xy,0.0);
                         outCol.a *= uColor.a;

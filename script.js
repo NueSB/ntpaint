@@ -222,6 +222,15 @@ function mainDraw(customClear)
         return;
     }
 
+    Graphics.setRenderTarget("backbuffer");
+        gl.enable(gl.BLEND);
+        //Graphics.drawColor = new Color("#DDDDDD"); // background fill
+        //Graphics.fillRect(0,0, canvasWidth, canvasHeight);
+        Graphics.drawColor = Color.blue;
+        Graphics.fillRect(0, 0, 1024, 1024);
+    Graphics.setRenderTarget(null);
+
+
     Graphics.setRenderTarget(null);
 
     Graphics.updateTextures();
@@ -237,11 +246,15 @@ function mainDraw(customClear)
     //if (!customClear || customClear.force)
     {
         Graphics.clearRect(0,0, canvas.width, canvas.height);
-        Graphics.drawColor = new Color("#999999");
+        Graphics.drawColor = new Color("#909999");
         Graphics.fillRect(0, 0, canvasWidth, canvasHeight);
         Graphics.drawColor = Color.white;
         Graphics.tintColor = Color.white;
-        Graphics.drawImage( "backbuffer", 0, 0, 1024, 1024);
+        Graphics.save();
+        Graphics.translate(0, canvasHeight)
+        Graphics.scale(1, -1);
+        Graphics.drawImage( "backbuffer", 0, 0);
+        Graphics.restore();
     }/*
     else
     {
@@ -625,11 +638,10 @@ Object.keys(g_actionKeys).forEach(action => {
     
     Graphics.setup( gl );
     
-
-    Graphics.createRenderTarget("backbuffer", 1024, 1024);
-    Graphics.setRenderTarget("backbuffer");
-
     rescaleViewCanvas();
+    
+    Graphics.createRenderTarget("backbuffer", canvasWidth, canvasHeight);
+
     setColor(1, Color.white);
     setTool(0);
 
@@ -646,11 +658,15 @@ Object.keys(g_actionKeys).forEach(action => {
     Graphics.setRenderTarget("backbuffer");
         gl.viewport(0, 0, canvasWidth, canvasHeight);
         gl.enable(gl.BLEND);
-        Graphics.drawColor = new Color("#DDDDDD"); // background fill
-        Graphics.fillRect(0,0, canvasWidth, canvasHeight);
+        //Graphics.drawColor = new Color("#DDDDDD"); // background fill
+        //Graphics.fillRect(0,0, canvasWidth, canvasHeight);
         Graphics.drawColor = Color.black;
-        Graphics.fillRect(2, 2, 32, 32);
+        Graphics.fillRect(0, 0, 1024, 1024);
     Graphics.setRenderTarget(null);
+
+    Graphics.drawColor = Color.red;
+    Graphics.fillRect(0, 0, 32, 256);
+    
     setActiveLayer( 0 );
 
     // FIXME: readpixels
@@ -661,7 +677,7 @@ Object.keys(g_actionKeys).forEach(action => {
     } );
     */
 
-    mainDraw();
+    mainDraw();    
 }
 
 
@@ -680,7 +696,8 @@ function rescaleViewCanvas()
 
     gl.viewport( 0, 0, canvas.width, canvas.height );
 
-    mainDraw( { force: true } );
+    if (g_isLoaded)
+        mainDraw( { force: true } );
 }
 
 
@@ -836,15 +853,19 @@ function drawLine(start,end,brushSize,spacing)
         g_layerctx.globalCompositeOperation = "source-over";
     */
 
+    
     Graphics.setRenderTarget( "backbuffer" );
-    Graphics.drawColor = Color.red;
+        console.log(start, end);
+        //gl.viewport(0, 0, canvasWidth, canvasHeight);
+        gl.enable(gl.BLEND);
+        Graphics.drawColor = Color.red;
+        
         for( var i = 0; i <= Math.floor(dist / spacing); i++)
         {
             Graphics.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
             pos.x += step.x;
             pos.y += step.y;
         }
-
     Graphics.setRenderTarget(null);
     //g_layerctx.globalCompositeOperation = "source-over";
     
@@ -1124,7 +1145,7 @@ function drawStart(e)
             );
         }
         case 3:
-            g_currentLayer.globalCompositeOperation = "destination-out";
+            //g_currentLayer.globalCompositeOperation = "destination-out";
 
         default:
             drawing = true;
