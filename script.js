@@ -189,6 +189,7 @@ function main()
 // draw to the texture that contains "normal" combined layers
 function drawBackbuffer( region )
 {
+    return;
     if (region == undefined)
     {
         region = {x: 0, y: 0, w: canvasWidth, h: canvasHeight};
@@ -236,9 +237,9 @@ function mainDraw(customClear)
     //if (!customClear || customClear.force)
     {
         Graphics.clearRect(0,0, canvas.width, canvas.height);
-        Graphics.drawColor = Color.white;
+        Graphics.drawColor = Color.black;
         Graphics.fillRect(0, 0, canvasWidth, canvasHeight);
-        //Graphics.drawImage( backbuffer, 0, 0 );
+        Graphics.drawImage( "backbuffer", 0, 0 );
     }/*
     else
     {
@@ -828,7 +829,7 @@ function drawLine(start,end,brushSize,spacing)
         g_layerctx.globalCompositeOperation = "source-over";
     */
 
-    Graphics.setRenderTarget( g_currentLayer.id );
+    Graphics.setRenderTarget( "backbuffer" );
      
         for( var i = 0; i <= Math.floor(dist / spacing); i++)
         {
