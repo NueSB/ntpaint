@@ -226,6 +226,7 @@ export const Graphics = {
     setShader: function(shader)
     {
         this.currentShader = this.programs[shader];
+        this.gl.bindVertexArray( this.currentShader.vertexArray );
         this.gl.useProgram(this.currentShader.program)
     },
 
@@ -602,7 +603,8 @@ export const Graphics = {
 
         Object.keys(this.shaders).forEach(shader => {
             this.programs[shader] = this.generateProgram(shader);
-            console.log(this.programs[shader].vars);
+            console.log(`\nPROGRAM '${shader}':`);
+            console.log(this.programs[shader]);
         });
 
         this.setShader("baseColor");
@@ -708,9 +710,8 @@ export const Graphics = {
     
         let curVar = null,
             varLocation = null,
-            buffers = [],
-            vertArrays = [];
-    
+            buffers = [];
+
         for (let x = 0; x < vertvars.length; x++)
         {
             curVar = vertvars[x];
@@ -752,7 +753,7 @@ export const Graphics = {
                 type: curVar[1],
             };
         }
-        return { program: program, vars: vars, vertArrays };
+        return { program: program, vars: vars, vertexArray: vertArray };
     },
 
     currentShader: null,
@@ -818,6 +819,35 @@ export const Graphics = {
                     }`
         },
 
+        "baseColor_batch":
+        {
+            vert: `#version 300 es
+                    in vec4 aPos;
+                    in vec4 aColor;
+                    in mat4 aMatrix;
+
+                    uniform mat4 projection;
+                    
+                    out vec4 v_color;
+                    
+                    void main()
+                    {
+                        gl_Position = aMatrix * aPos;
+                        v_color = aColor;
+                    }`,
+
+            frag: `#version 300 es
+                    precision mediump float;
+                    
+                    in vec4 v_color;
+
+                    out vec4 col;
+                    void main()
+                    {
+                        col = vec4(1.0, 0.0, 0.0, 1.0);
+                    }`,
+        },
+
     },
 
     programs: {},
@@ -828,80 +858,176 @@ export const Graphics = {
 };
 
 export const m4 = {
-    identity: function() {
-        return [
-            1, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1
-        ];
+    identity: function(dst=undefined) {
+        dst = dst || new Float32Array(16);
+
+        dst[0]=1;
+        dst[1]=0;
+        dst[2]=0;
+        dst[3]=0;
+        dst[4]=0;
+        dst[5]=1;
+        dst[6]=0;
+        dst[7]=0;
+        dst[8]=0;
+        dst[9]=0;
+        dst[10]=1;
+        dst[11]=0;
+        dst[12]=0;
+        dst[13]=0;
+        dst[14]=0;
+        dst[15]=1;
+
+        return dst;
     },
 
-    projection: function(width, height, depth) {
+    projection: function(width, height, depth, dst=undefined) {
+        dst = dst || new Float32Array(16);
         // Note: This matrix flips the Y axis so 0 is at the top.
-        return [
-           2 / width, 0, 0, 0,
-           0, -2 / height, 0, 0,
-           0, 0, 2 / depth, 0,
-          -1, 1, 0, 1,
-        ];
+        dst[0]=2 / width;
+        dst[1]=0;
+        dst[2]=0;
+        dst[3]=0;
+        dst[4]=0;
+        dst[5]=-2 / height;
+        dst[6]=0;
+        dst[7]=0;
+        dst[8]=0;
+        dst[9]=0;
+        dst[10]=2 / depth;
+        dst[11]=0;
+        dst[12]=-1;
+        dst[13]=1;
+        dst[14]=0;
+        dst[15]=1;
+
+        return dst;
       },
 
-    translation: function(tx, ty, tz) {
-      return [
-         1,  0,  0,  0,
-         0,  1,  0,  0,
-         0,  0,  1,  0,
-         tx, ty, tz, 1,
-      ];
+    translation: function(tx, ty, tz, dst=undefined) {
+        dst = dst || new Float32Array(16);
+
+        dst[0]=1;
+        dst[1]=0;
+        dst[2]=0;
+        dst[3]=0;
+        dst[4]=0;
+        dst[5]=1;
+        dst[6]=0;
+        dst[7]=0;
+        dst[8]=0;
+        dst[9]=0;
+        dst[10]=1;
+        dst[11]=0;
+        dst[12]=tx;
+        dst[13]=ty;
+        dst[14]=tz;
+        dst[15]=1;
+
+        return dst;
     },
    
-    xRotation: function(angleInRadians) {
-      var c = Math.cos(angleInRadians);
-      var s = Math.sin(angleInRadians);
-   
-      return [
-        1, 0, 0, 0,
-        0, c, s, 0,
-        0, -s, c, 0,
-        0, 0, 0, 1,
-      ];
+    xRotation: function(angleInRadians, dst=undefined) {
+        dst = dst || new Float32Array(16);
+        var c = Math.cos(angleInRadians);
+        var s = Math.sin(angleInRadians);
+
+        dst[0]=1;
+        dst[1]=0;
+        dst[2]=0;
+        dst[3]=0;
+        dst[4]=0;
+        dst[5]=c;
+        dst[6]=s;
+        dst[7]=0;
+        dst[8]=0;
+        dst[9]=-s;
+        dst[10]=c;
+        dst[11]=0;
+        dst[12]=0;
+        dst[13]=0;
+        dst[14]=0;
+        dst[15]=1;
+
+        return dst;
     },
    
-    yRotation: function(angleInRadians) {
-      var c = Math.cos(angleInRadians);
-      var s = Math.sin(angleInRadians);
-   
-      return [
-        c, 0, -s, 0,
-        0, 1, 0, 0,
-        s, 0, c, 0,
-        0, 0, 0, 1,
-      ];
+    yRotation: function(angleInRadians, dst=undefined) {
+        dst = dst || new Float32Array(16);
+        var c = Math.cos(angleInRadians);
+        var s = Math.sin(angleInRadians);
+
+        dst[0]=c;
+        dst[1]=0;
+        dst[2]=-s;
+        dst[3]=0;
+        dst[4]=0;
+        dst[5]=1;
+        dst[6]=0;
+        dst[7]=0;
+        dst[8]=s;
+        dst[9]=0;
+        dst[10]=c;
+        dst[11]=0;
+        dst[12]=0;
+        dst[13]=0;
+        dst[14]=0;
+        dst[15]=1;
+
+        return dst;
     },
    
-    zRotation: function(angleInRadians) {
-      var c = Math.cos(angleInRadians);
-      var s = Math.sin(angleInRadians);
+    zRotation: function(angleInRadians, dst=undefined) {
+        dst = dst || new Float32Array(16);
+        var c = Math.cos(angleInRadians);
+        var s = Math.sin(angleInRadians);
    
-      return [
-         c, s, 0, 0,
-        -s, c, 0, 0,
-         0, 0, 1, 0,
-         0, 0, 0, 1,
-      ];
+        dst[0]=c;
+        dst[1]=s;
+        dst[2]=0;
+        dst[3]=0;
+        dst[4]=-s;
+        dst[5]=c;
+        dst[6]=0;
+        dst[7]=0;
+        dst[8]=0;
+        dst[9]=0;
+        dst[10]=1;
+        dst[11]=0;
+        dst[12]=0;
+        dst[13]=0;
+        dst[14]=0;
+        dst[15]=1;
+
+        return dst;
     },
    
-    scaling: function(sx, sy, sz) {
-      return [
-        sx, 0,  0,  0,
-        0, sy,  0,  0,
-        0,  0, sz,  0,
-        0,  0,  0,  1,
-      ];
+    scaling: function(sx, sy, sz, dst=undefined) {
+        dst = dst || new Float32Array(16);
+
+        dst[0]=sx;
+        dst[1]=0;
+        dst[2]=0;
+        dst[3]=0;
+        dst[4]=0;
+        dst[5]=sy;
+        dst[6]=0;
+        dst[7]=0;
+        dst[8]=0;
+        dst[9]=0;
+        dst[10]=sz;
+        dst[11]=0;
+        dst[12]=0;
+        dst[13]=0;
+        dst[14]=0;
+        dst[15]=1;
+
+        return dst;
     },
 
-      multiply: function(a, b) {
+      multiply: function(a, b, dst=undefined) {
+        dst = dst || new Float32Array(16);
+
         var b00 = b[0 * 4 + 0];
         var b01 = b[0 * 4 + 1];
         var b02 = b[0 * 4 + 2];
@@ -935,24 +1061,24 @@ export const m4 = {
         var a32 = a[3 * 4 + 2];
         var a33 = a[3 * 4 + 3];
      
-        return [
-          b00 * a00 + b01 * a10 + b02 * a20 + b03 * a30,
-          b00 * a01 + b01 * a11 + b02 * a21 + b03 * a31,
-          b00 * a02 + b01 * a12 + b02 * a22 + b03 * a32,
-          b00 * a03 + b01 * a13 + b02 * a23 + b03 * a33,
-          b10 * a00 + b11 * a10 + b12 * a20 + b13 * a30,
-          b10 * a01 + b11 * a11 + b12 * a21 + b13 * a31,
-          b10 * a02 + b11 * a12 + b12 * a22 + b13 * a32,
-          b10 * a03 + b11 * a13 + b12 * a23 + b13 * a33,
-          b20 * a00 + b21 * a10 + b22 * a20 + b23 * a30,
-          b20 * a01 + b21 * a11 + b22 * a21 + b23 * a31,
-          b20 * a02 + b21 * a12 + b22 * a22 + b23 * a32,
-          b20 * a03 + b21 * a13 + b22 * a23 + b23 * a33,
-          b30 * a00 + b31 * a10 + b32 * a20 + b33 * a30,
-          b30 * a01 + b31 * a11 + b32 * a21 + b33 * a31,
-          b30 * a02 + b31 * a12 + b32 * a22 + b33 * a32,
-          b30 * a03 + b31 * a13 + b32 * a23 + b33 * a33,
-        ]
+        dst[0]=b00 * a00 + b01 * a10 + b02 * a20 + b03 * a30;
+        dst[1]=b00 * a01 + b01 * a11 + b02 * a21 + b03 * a31;
+        dst[2]=b00 * a02 + b01 * a12 + b02 * a22 + b03 * a32;
+        dst[3]=b00 * a03 + b01 * a13 + b02 * a23 + b03 * a33;
+        dst[4]=b10 * a00 + b11 * a10 + b12 * a20 + b13 * a30;
+        dst[5]=b10 * a01 + b11 * a11 + b12 * a21 + b13 * a31;
+        dst[6]=b10 * a02 + b11 * a12 + b12 * a22 + b13 * a32;
+        dst[7]=b10 * a03 + b11 * a13 + b12 * a23 + b13 * a33;
+        dst[8]=b20 * a00 + b21 * a10 + b22 * a20 + b23 * a30;
+        dst[9]=b20 * a01 + b21 * a11 + b22 * a21 + b23 * a31;
+        dst[10]=b20 * a02 + b21 * a12 + b22 * a22 + b23 * a32;
+        dst[11]=b20 * a03 + b21 * a13 + b22 * a23 + b23 * a33;
+        dst[12]=b30 * a00 + b31 * a10 + b32 * a20 + b33 * a30;
+        dst[13]=b30 * a01 + b31 * a11 + b32 * a21 + b33 * a31;
+        dst[14]=b30 * a02 + b31 * a12 + b32 * a22 + b33 * a32;
+        dst[15]=b30 * a03 + b31 * a13 + b32 * a23 + b33 * a33;
+
+        return dst;
     }
 };
 
@@ -1005,7 +1131,7 @@ export const m3 = {
     },
 
     multiply: function(a, b)
-    { // TODO: beautify me
+    {
         var a00 = a[0 * 3 + 0];
         var a01 = a[0 * 3 + 1];
         var a02 = a[0 * 3 + 2];

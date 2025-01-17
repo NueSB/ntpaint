@@ -50,7 +50,6 @@ var mainPicker = document.createElement( "div" );
 
 var colorPicker = new Picker("#colorpicker");
 
-
 class Layer {
     name = "X";
     width = 0;
@@ -246,6 +245,8 @@ function mainDraw(customClear)
         Graphics.scale(1, -1);
         Graphics.drawImage( "backbuffer", 0, 0);
         Graphics.restore();
+
+        render();
     }/*
     else
     {
@@ -587,7 +588,7 @@ Object.keys(g_actionKeys).forEach(action => {
         g_keyStates.set(action.key, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
 })
 
-{
+
     let icon = document.createElement("img");
     icon.src = "images/placeholder.png";
     for (let i = 0; i < g_tools.length; i++)
@@ -636,7 +637,6 @@ Object.keys(g_actionKeys).forEach(action => {
     setColor(1, Color.white);
     setTool(0);
 
-    g_isLoaded = true;
     main();
     displayToast("loaded!");
     
@@ -646,44 +646,108 @@ Object.keys(g_actionKeys).forEach(action => {
         createLayer(i);
     }
 
-    Graphics.setRenderTarget("backbuffer");
-    /*
-    Graphics.setRenderTarget("backbuffer");
-        let x = 32;
-        let y = 512;
-        let w = 32;
-        let h = 32;
-        let z = 0;
-        Graphics.setShader("baseColor");
-        Graphics.gl.uniform4f(Graphics.currentShader.vars['uColor'].location,
-            Graphics.drawColor.r / 255, Graphics.drawColor.g / 255, Graphics.drawColor.b / 255, Graphics.globalAlpha);
-        
-            const viewport = Graphics.gl.getParameter(Graphics.gl.VIEWPORT);
-            let matrix = m4.projection(
-                viewport[2],
-                viewport[3],
-                400
-            );
-            
-            Graphics.setMesh( Graphics.meshes.quad );
-            
-            matrix = m4.multiply(matrix, Graphics.globalTransform);
-            matrix = m4.multiply(matrix, m4.translation(x,y,z));
-            matrix = m4.multiply(matrix, m4.scaling(w,h,1));
-    
-            Graphics.gl.uniformMatrix4fv(Graphics.currentShader.vars['uMatrix'].location, false, matrix);
-            
-            Graphics.gl.drawArrays(Graphics.gl.TRIANGLES, 0, 6);
-    
-    Graphics.drawColor = Color.blue;
-    Graphics.fillRect(32, 512, 32, 32);
-    */
+    drawLine( Vec2(0,0), Vec2(1024, 1024), 16, 3);
 
-    drawLine( Vec2(0,0), Vec2(1024, 1024), 3, 3);
-    Graphics.setRenderTarget(null);
-    
     setActiveLayer( 0 );
+        
+    //Graphics.setShader( "baseColor_batch" );
+    gl.useProgram( Graphics.programs["baseColor_batch"].program );
 
+        let positionLoc = Graphics.programs["baseColor_batch"].vars["aPos"].location;
+        let colorLoc = Graphics.programs["baseColor_batch"].vars["aColor"].location;
+        let matrixLoc = Graphics.programs["baseColor_batch"].vars["aMatrix"].location;
+        const vao = Graphics.programs["baseColor_batch"].vertexArray;
+
+        // and make it the one we're currently working with
+        gl.bindVertexArray(vao);
+      
+        Graphics.setMesh( Graphics.meshes.quad );
+      
+        // setup matrixes, one per instance
+        const numInstances = 12;
+        // make a typed array with one view per matrix
+        let matrixData = new Float32Array(numInstances * 16);
+        let matrices = [];
+        for (let i = 0; i < numInstances; ++i) {
+          const byteOffsetToMatrix = i * 16 * 4;
+          const numFloatsForView = 16;
+          matrices.push(new Float32Array(
+              matrixData.buffer,
+              byteOffsetToMatrix,
+              numFloatsForView));
+        }
+      
+        const matrixBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, matrixBuffer);
+        // just allocate the buffer
+        gl.bufferData(gl.ARRAY_BUFFER, matrixData.byteLength, gl.DYNAMIC_DRAW);
+      
+        // set all 4 attributes for matrix
+        const bytesPerMatrix = 4 * 16;
+        for (let i = 0; i < 4; ++i) {
+          const loc = matrixLoc + i;
+          gl.enableVertexAttribArray(loc);
+          // note the stride and offset
+          const offset = i * 16;  // 4 floats per row, 4 bytes per float
+          gl.vertexAttribPointer(
+              loc,              // location
+              4,                // size (num values to pull from buffer per iteration)
+              gl.FLOAT,         // type of data in buffer
+              false,            // normalize
+              bytesPerMatrix,   // stride, num bytes to advance to get to next set of values
+              offset,           // offset in buffer
+          );
+          // this line says this attribute only changes for each 1 instance
+          gl.vertexAttribDivisor(loc, 1);
+        }
+      
+        // setup colors, one per instance
+        const colorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER,
+            new Float32Array([
+                1, 0, 0, 1,  // red
+                0, 1, 0, 1,  // green
+                0, 0, 1, 1,  // blue
+                1, 0, 1, 1,  // magenta
+                0, 1, 1, 1,  // cyan
+              ]),
+            gl.STATIC_DRAW);
+      
+        // set attribute for color
+        gl.enableVertexAttribArray(colorLoc);
+        gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 0, 0);
+        // this line says this attribute only changes for each 1 instance
+        gl.vertexAttribDivisor(colorLoc, 1);
+
+        function render() {
+            if (!g_isLoaded) 
+                return;
+            Graphics.setRenderTarget( "backbuffer" );
+            Graphics.setShader("baseColor_batch");
+            // setup all attributes
+            gl.bindVertexArray(vao);
+
+            for(var i = 0; i < numInstances; i++)
+            {
+                m4.projection(matrices[i]);
+                m4.translation(-0.5 + i * 0.25, 0, 0, matrices[i]);
+            }
+            
+            // upload the new matrix data
+            gl.bindBuffer(gl.ARRAY_BUFFER, matrixBuffer);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, matrixData);
+
+            gl.drawArraysInstanced(
+                gl.TRIANGLES,
+                0,             // offset
+                6,   // num vertices per instance
+                numInstances,  // num instances
+            );
+
+        Graphics.setRenderTarget(null);
+        }
+        render();
     // FIXME: readpixels
     /*
     g_undoHistory.push( {
@@ -692,8 +756,9 @@ Object.keys(g_actionKeys).forEach(action => {
     } );
     */
 
+    g_isLoaded = true;
     mainDraw();    
-}
+
 
 
 function displayToast(message)
@@ -869,19 +934,6 @@ function drawLine(start,end,brushSize,spacing)
         g_layerctx.globalCompositeOperation = "source-over";
     */
 
-    
-    Graphics.setRenderTarget( "backbuffer" );
-    
-    gl.enable(gl.BLEND);
-    
-    for( var i = 0; i <= Math.floor(dist / spacing); i++)
-    {
-        Graphics.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
-        pos.x += step.x;
-        pos.y += step.y;
-    }
-
-    Graphics.setRenderTarget(null);
     //g_layerctx.globalCompositeOperation = "source-over";
     
     let region = { x: start.x < end.x ? start.x : end.x,
