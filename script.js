@@ -1,6 +1,6 @@
 import { Color } from "./color.js";
 import { Picker } from "./picker.js";
-import { Graphics } from "./graphics.js";
+import { Graphics, m4 } from "./graphics.js";
 
 "use strict";
 
@@ -221,15 +221,6 @@ function mainDraw(customClear)
         g_drawQueue.push(customClear || undefined);
         return;
     }
-
-    Graphics.setRenderTarget("backbuffer");
-        gl.enable(gl.BLEND);
-        //Graphics.drawColor = new Color("#DDDDDD"); // background fill
-        //Graphics.fillRect(0,0, canvasWidth, canvasHeight);
-        Graphics.drawColor = Color.blue;
-        Graphics.fillRect(0, 0, 1024, 1024);
-    Graphics.setRenderTarget(null);
-
 
     Graphics.setRenderTarget(null);
 
@@ -656,16 +647,40 @@ Object.keys(g_actionKeys).forEach(action => {
     }
 
     Graphics.setRenderTarget("backbuffer");
-        gl.viewport(0, 0, canvasWidth, canvasHeight);
-        gl.enable(gl.BLEND);
-        //Graphics.drawColor = new Color("#DDDDDD"); // background fill
-        //Graphics.fillRect(0,0, canvasWidth, canvasHeight);
-        Graphics.drawColor = Color.black;
-        Graphics.fillRect(0, 0, 1024, 1024);
-    Graphics.setRenderTarget(null);
+    /*
+    Graphics.setRenderTarget("backbuffer");
+        let x = 32;
+        let y = 512;
+        let w = 32;
+        let h = 32;
+        let z = 0;
+        Graphics.setShader("baseColor");
+        Graphics.gl.uniform4f(Graphics.currentShader.vars['uColor'].location,
+            Graphics.drawColor.r / 255, Graphics.drawColor.g / 255, Graphics.drawColor.b / 255, Graphics.globalAlpha);
+        
+            const viewport = Graphics.gl.getParameter(Graphics.gl.VIEWPORT);
+            let matrix = m4.projection(
+                viewport[2],
+                viewport[3],
+                400
+            );
+            
+            Graphics.setMesh( Graphics.meshes.quad );
+            
+            matrix = m4.multiply(matrix, Graphics.globalTransform);
+            matrix = m4.multiply(matrix, m4.translation(x,y,z));
+            matrix = m4.multiply(matrix, m4.scaling(w,h,1));
+    
+            Graphics.gl.uniformMatrix4fv(Graphics.currentShader.vars['uMatrix'].location, false, matrix);
+            
+            Graphics.gl.drawArrays(Graphics.gl.TRIANGLES, 0, 6);
+    
+    Graphics.drawColor = Color.blue;
+    Graphics.fillRect(32, 512, 32, 32);
+    */
 
-    Graphics.drawColor = Color.red;
-    Graphics.fillRect(0, 0, 32, 256);
+    drawLine( Vec2(0,0), Vec2(1024, 1024), 3, 3);
+    Graphics.setRenderTarget(null);
     
     setActiveLayer( 0 );
 
@@ -694,6 +709,7 @@ function rescaleViewCanvas()
     canvas.width = parseInt(style.width.slice(0, -2));
     canvas.height = parseInt(style.height.slice(0, -2));
 
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport( 0, 0, canvas.width, canvas.height );
 
     if (g_isLoaded)
@@ -855,17 +871,16 @@ function drawLine(start,end,brushSize,spacing)
 
     
     Graphics.setRenderTarget( "backbuffer" );
-        console.log(start, end);
-        //gl.viewport(0, 0, canvasWidth, canvasHeight);
-        gl.enable(gl.BLEND);
-        Graphics.drawColor = Color.red;
-        
-        for( var i = 0; i <= Math.floor(dist / spacing); i++)
-        {
-            Graphics.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
-            pos.x += step.x;
-            pos.y += step.y;
-        }
+    
+    gl.enable(gl.BLEND);
+    
+    for( var i = 0; i <= Math.floor(dist / spacing); i++)
+    {
+        Graphics.fillRect( Math.floor(pos.x - brushSize / 2), Math.floor(pos.y - brushSize/2), brushSize, brushSize );
+        pos.x += step.x;
+        pos.y += step.y;
+    }
+
     Graphics.setRenderTarget(null);
     //g_layerctx.globalCompositeOperation = "source-over";
     
@@ -883,7 +898,7 @@ function drawLine(start,end,brushSize,spacing)
     if (debug)
         ctx_b.strokeRect(region.x, region.y, region.w, region.h);
     */
-    requestAnimationFrame(drawBackbuffer.bind(this, region));
+    //requestAnimationFrame(drawBackbuffer.bind(this, region));
 
     //g_layerctx.globalAlpha = 1;
 }

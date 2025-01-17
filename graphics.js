@@ -175,7 +175,6 @@ export const Graphics = {
             400
         );
         
-
         matrix = m4.multiply(matrix, this.globalTransform);
         matrix = m4.multiply(matrix, m4.translation(x,y,z));
         matrix = m4.multiply(matrix, m4.scaling(w,h,1));
@@ -210,7 +209,7 @@ export const Graphics = {
         this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);
     },
 
-    fillRect: function(x, y, w, h, z=-y)
+    fillRect: function(x, y, w, h, z=0)
     {
         this.setShader("baseColor");
         this.gl.uniform4f(this.currentShader.vars['uColor'].location,
@@ -800,7 +799,6 @@ export const Graphics = {
                     }`,
 
             frag: `#version 300 es
-                    //#define DEBUG_DEPTH
 
                     precision mediump float;
                     
