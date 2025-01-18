@@ -40,6 +40,9 @@ var canvas = document.querySelector("#c"),
     var canvasWidth = 1024;
     var canvasHeight = 1024;
 
+var tempCanvas = document.createElement("canvas");
+var tempCtx = tempCanvas.getContext("2d");
+
 var subPicker = document.createElement( "div" );
     subPicker.id = "subpicker";
     uiColorContainer.appendChild(subPicker);
@@ -657,13 +660,8 @@ Object.keys(g_actionKeys).forEach(action => {
 
     setActiveLayer( 0 );
 
-    drawLine( Vec2(0,0), Vec2(1024, 1024), 16, 3);
-    
     Graphics.setRenderTarget("backbuffer");
-
-    Graphics.pushInstanceData(2,2,32,32,Color.red);
-    Graphics.drawInstanceRects();
-
+    Graphics.loadTexture( tempCanvas, "tempCanvas" );
         
     // FIXME: readpixels
     /*
@@ -742,10 +740,23 @@ async function pasteImage(position)
           reader.onload = () => {
             const img = document.createElement('img');
             img.onload = function() {
-                // STUB
-                return;
-                g_layerctx.drawImage(img, position.x, position.y);
+                Graphics.setRenderTarget( g_currentLayer.id );
+                
+                tempCanvas.width = img.width;
+                tempCanvas.height = img.height;
+                Graphics.textures["tempCanvas"].width = img.width;
+                Graphics.textures["tempCanvas"].height = img.height;
+                
+                tempCtx.drawImage(img, 0, 0);
+                
+                gl.bindTexture( gl.TEXTURE_2D, Graphics.textures["tempCanvas"].texture );
+                gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tempCanvas);
+                
+                Graphics.setRenderTarget( g_currentLayer.id );
+
+                Graphics.drawImage( "tempCanvas", position.x, position.y);
                 pushUndoHistory();
+                drawBackbuffer();
             };
             img.src = reader.result;
           };
