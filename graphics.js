@@ -1,75 +1,8 @@
+import { Color } from "./color.js";
+
 function lerp(v0, v1, t) 
 {
     return v0*(1-t)+v1*t
-}
-
-export class Color 
-{
-    constructor(r = 0, g = 0, b = 0, a = 255) 
-    {
-        if (typeof r === "string") 
-        {
-            [this.r, this.g, this.b] = Color.hexToRgb(r);
-            this.a = a <= 0 ? 0 : a;
-            this.hex = r;
-        } else {
-            this.r = r;
-            this.g = g;
-            this.b = b;
-            this.a = a;
-            this.hex = null;
-        }
-    }
-
-    toString()
-    {
-        return `rgba(${this.r},${this.g},${this.b},${this.a})`;
-    }
-
-    static lerp(a, b, t)
-    {
-        return new Color(
-            lerp(a.r, b.r, t),
-            lerp(a.g, b.g, t),
-            lerp(a.b, b.b, t),
-            lerp(a.a, b.a, t),
-        );
-    }
-
-    static add(a, b)
-    {
-        return new Color(
-            a.r + b.r,
-            a.g + b.g,
-            a.b + b.b,
-            a.a + b.a
-        );
-    }
-
-    static subtract(a, b)
-    {
-        return new Color(
-            a.r - b.r,
-            a.g - b.g,
-            a.b - b.b,
-            a.a - b.a
-        );
-    }
-
-    static hexToRgb(hex)
-    {
-        return hex.slice(1).match(/.{1,2}/g).map(x => parseInt(x, 16));
-    }
-
-    static red = new Color(255, 0, 0);
-    static orange = new Color(255, 165, 0);
-    static yellow = new Color(255, 255, 0);
-    static green = new Color(0, 255, 0);
-    static blue = new Color(0, 0, 255);
-    static indigo = new Color(75, 0, 130);
-    static purple = new Color(238, 130, 238);
-    static white = new Color(255, 255, 255);
-    static black = new Color(0, 0, 0);
 }
 
 export const Graphics = {
@@ -81,6 +14,14 @@ export const Graphics = {
     globalTransform: 0,
     imageLoadCount: 0,
     posBuffer: 0,
+    instanceData: {
+        numInstances: 0,
+        positions: [],
+        colors: [],
+        matrixData: null,
+        matrixBuffer: null,
+        colorBuffer: null,
+    },
     queues: {
         textures: []
     },
@@ -207,6 +148,106 @@ export const Graphics = {
         this.gl.uniformMatrix4fv(this.currentShader.vars['uMatrix'].location, false, matrix);
         
         this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);
+    },
+
+    pushInstanceData: function(x,y,w,h, color)
+    {
+        this.instanceData.positions.push( {x: x, y: y, w: w, h: h} );
+        this.instanceData.colors.push(...[color.r/255, color.g/255, color.b/255, color.a/255]);
+        this.instanceData.numInstances++;
+    },
+
+    drawInstanceRects: function()
+    {
+        let gl = this.gl;
+
+        this.setShader( "baseColor_batch" );
+
+        let colorLoc = this.currentShader.vars["aColor"].location;
+        let matrixLoc = this.currentShader.vars["aMatrix"].location;
+        const vao = this.currentShader.vertexArray;
+
+        gl.bindVertexArray(vao);
+    
+        this.setMesh( this.meshes.quad );
+    
+        // setup matrixes, one per instance
+        const numInstances = this.instanceData.numInstances;
+        // make a typed array with one view per matrix
+        let matrixData = new Float32Array(numInstances * 16);
+        let matrices = [];
+        for (let i = 0; i < numInstances; ++i) {
+        const byteOffsetToMatrix = i * 16 * 4;
+        const numFloatsForView = 16;
+        matrices.push(new Float32Array(
+            matrixData.buffer,
+            byteOffsetToMatrix,
+            numFloatsForView));
+        }
+    
+        const matrixBuffer = this.instanceData.matrixBuffer;
+        gl.bindBuffer(gl.ARRAY_BUFFER, matrixBuffer);
+        // reallocate buffer
+        gl.bufferData(gl.ARRAY_BUFFER, matrixData.byteLength, gl.DYNAMIC_DRAW);
+    
+        // set all 4 attributes for matrix
+        const bytesPerMatrix = 4 * 16;
+        for (let i = 0; i < 4; ++i) 
+        {
+            const loc = matrixLoc + i;
+            gl.enableVertexAttribArray(loc);
+            // note the stride and offset
+            const offset = i * 16;  // 4 floats per row, 4 bytes per float
+            gl.vertexAttribPointer(
+                loc,              // location
+                4,                // size (num values to pull from buffer per iteration)
+                gl.FLOAT,         // type of data in buffer
+                false,            // normalize
+                bytesPerMatrix,   // stride, num bytes to advance to get to next set of values
+                offset,           // offset in buffer
+            );
+            // this line says this attribute only changes for each 1 instance
+            gl.vertexAttribDivisor(loc, 1);
+        }
+    
+        // setup colors, one per instance
+        const colorBuffer = this.instanceData.colorBuffer;
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER,
+            new Float32Array(
+                this.instanceData.colors
+            ),
+            gl.DYNAMIC_DRAW);
+    
+        // set attribute for color
+        gl.enableVertexAttribArray(colorLoc);
+        gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 0, 0);
+        // this line says this attribute only changes for each 1 instance
+        gl.vertexAttribDivisor(colorLoc, 1);
+
+        // matrix data transformation
+        for(var i = 0; i < numInstances; i++)
+        {
+            const p = this.instanceData.positions[i];
+            m4.multiply(m4.projection(1024,1024,400), m4.translation(p.x,p.y,0), matrices[i]);
+            m4.multiply(matrices[i], m4.scaling(p.w, p.h, 1), matrices[i]);
+        }
+        
+        // upload the new matrix data
+        gl.bindBuffer(gl.ARRAY_BUFFER, matrixBuffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, matrixData);
+
+        gl.drawArraysInstanced(
+            gl.TRIANGLES,
+            0,              // offset
+            6,              // num vertices per instance
+            numInstances,
+        );
+        
+        this.instanceData.positions = [];
+        this.instanceData.colors = [];
+        this.instanceData.numInstances = 0;
+        
     },
 
     fillRect: function(x, y, w, h, z=0)
@@ -657,6 +698,9 @@ export const Graphics = {
         }
 
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+
+        this.instanceData.matrixBuffer = this.gl.createBuffer();
+        this.instanceData.colorBuffer = this.gl.createBuffer();
     },
 
     createShader: function(type, src)

@@ -130,7 +130,7 @@ function main() {
         // update all the matrices
         for(var i = 0; i < numInstances; i++)
         {
-            m4.translation(-0.5 + i * 0.25, 0, 0, matrices[i]);
+            m4.translation(i * 0.25, 0, 0, matrices[i]);
         }
         //console.log(matrices);
         // upload the new matrix data
