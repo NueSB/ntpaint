@@ -218,19 +218,30 @@ export const Graphics = {
                 this.instanceData.colors
             ),
             gl.DYNAMIC_DRAW);
-    
+
         // set attribute for color
         gl.enableVertexAttribArray(colorLoc);
         gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 0, 0);
         // this line says this attribute only changes for each 1 instance
         gl.vertexAttribDivisor(colorLoc, 1);
 
+        // store projection as a uniform as that's one less thing to calculate on the CPU side
+        const viewport = this.gl.getParameter(this.gl.VIEWPORT);
+        let matrix = m4.projection(
+            viewport[2],
+            viewport[3],
+            400
+        );
+
+        gl.uniformMatrix4fv( this.currentShader.vars["uProjection"].location, false, matrix );
+        
         // matrix data transformation
         for(var i = 0; i < numInstances; i++)
         {
             const p = this.instanceData.positions[i];
-            m4.multiply(m4.projection(1024,1024,400), m4.translation(p.x,p.y,0), matrices[i]);
-            m4.multiply(matrices[i], m4.scaling(p.w, p.h, 1), matrices[i]);
+            m4.multiply(m4.translation(p.x, p.y, 0), m4.scaling(p.w, p.h, 1), matrices[i]);
+            //m4.multiply(matrix, m4.translation(p.x,p.y,0), matrices[i]);
+            //m4.multiply(matrices[i], m4.scaling(p.w, p.h, 1), matrices[i]);
         }
         
         // upload the new matrix data
@@ -870,13 +881,13 @@ export const Graphics = {
                     in vec4 aColor;
                     in mat4 aMatrix;
 
-                    uniform mat4 projection;
+                    uniform mat4 uProjection;
                     
                     out vec4 v_color;
                     
                     void main()
                     {
-                        gl_Position = aMatrix * aPos;
+                        gl_Position = uProjection * aMatrix * aPos;
                         v_color = aColor;
                     }`,
 
@@ -888,7 +899,7 @@ export const Graphics = {
                     out vec4 col;
                     void main()
                     {
-                        col = vec4(1.0, 0.0, 0.0, 1.0);
+                        col = v_color;
                     }`,
         },
 

@@ -188,7 +188,6 @@ function main()
 // draw to the texture that contains "normal" combined layers
 function drawBackbuffer( region )
 {
-    return;
     if (region == undefined)
     {
         region = {x: 0, y: 0, w: canvasWidth, h: canvasHeight};
@@ -841,7 +840,24 @@ function drawLine(start,end,brushSize,spacing)
     */
 
     //g_layerctx.globalCompositeOperation = "source-over";
-    
+    Graphics.setRenderTarget( "backbuffer" );
+    for( var i = 0; i <= Math.floor(dist / spacing); i++)
+    {
+        Graphics.pushInstanceData( 
+            Math.floor(pos.x - brushSize / 2), 
+            Math.floor(pos.y - brushSize/2), 
+            brushSize, 
+            brushSize,
+            g_currentColor
+        );
+        
+        pos.x += step.x;
+        pos.y += step.y;
+    }
+
+    Graphics.drawInstanceRects();
+    Graphics.setRenderTarget( null );
+
     let region = { x: start.x < end.x ? start.x : end.x,
                    y: start.y < end.y ? start.y : end.y,
                    w: Math.abs(start.x - end.x),
@@ -1285,7 +1301,7 @@ uiContainer.addEventListener( "wheel", e=> {
 
     if (e.shiftKey)
     {
-        setBrushSize(Math.max(Math.min( g_BrushSize - Math.sign(e.deltaY) * 4, 128), 1));
+        setBrushSize(Math.max(Math.min( g_BrushSize - Math.sign(e.deltaY) * 4, 1024), 1));
         return;
     }
 
