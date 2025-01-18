@@ -56,6 +56,7 @@ class Layer {
     height = 0;
     renderTarget = 0;
     id = 0;
+    uiElement = null;
     isDirty = false;
 
     constructor(name = "X")
@@ -339,6 +340,9 @@ function createLayer(index)
     var i = g_layers.length - 1;
     uiLayerTemplate.style.display = "none";
 
+    layer.uiElement = layerUI;
+    console.log(layer.uiElement);
+
     layerUI.querySelector("span").innerHTML = layer.id;
     layerUI.onclick = ()=>{ setActiveLayer( i ) };
     //layerUI.querySelector(".layer-img").appendChild( layer.canvas );
@@ -347,22 +351,25 @@ function createLayer(index)
 
 function setActiveLayer(i)
 {
+    if (g_currentLayer)
+        g_currentLayer.uiElement.classList.toggle("layer-active");
+
     if (typeof i == typeof 0)
         g_currentLayer = g_layers[ i ];
     else if (typeof i == "object")
         g_currentLayer = i;
+    
+    g_currentLayer.uiElement.classList.toggle("layer-active");
 
-    g_layerctx = g_currentLayer.ctx;
-    if (isCanvasBlank(g_currentLayer.canvas, g_currentLayer.ctx))
+
+    if (isCanvasBlank( g_currentLayer.renderTarget ))
     {
         pushUndoHistory();
     }
-
-    console.log(g_currentLayer.id);
 }
 
 // https://stackoverflow.com/questions/17386707/how-to-check-if-a-canvas-is-blank
-function isCanvasBlank(canvas, ctx) 
+function isCanvasBlank(renderTarget) 
 {
     // STUB
     return false;
@@ -760,8 +767,6 @@ function swapColors()
 
 function undo()
 {
-    // STUB
-    return;
     g_undoPosition += 1;
     if (g_undoPosition > g_undoHistory.length-1)
     {
@@ -771,7 +776,8 @@ function undo()
     let undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
 
     setActiveLayer( undoValue.layer );
-    g_layerctx.putImageData(undoValue.data, 0, 0);
+    Graphics.setRenderTarget( g_currentLayer.id );
+    Graphics.putImageData(undoValue.data, 0, 0);
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
@@ -800,8 +806,6 @@ function redo()
 
 function pushUndoHistory()
 {
-    // STUB
-    return;
     if (g_undoPosition != 0)
     {
         for( var i = 0; i < g_undoPosition; i++)
@@ -816,9 +820,10 @@ function pushUndoHistory()
         g_undoHistory.shift();
     }
 
+    Graphics.setRenderTarget( g_currentLayer.id );
     g_undoHistory.push( {
         layer: g_currentLayer, 
-        data: g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
+        data: Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
     } );
 }
 

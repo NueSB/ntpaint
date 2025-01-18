@@ -362,6 +362,39 @@ export const Graphics = {
         this.drawRect(dx, dy, dw, dh, z);
     },
 
+    getImageData: function(x, y, width, height) 
+    {
+        const pixels = new Uint8Array(width * height * 4); // RGBA
+        this.gl.readPixels(x, y, width, height, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
+        return { w: width, h: height, data: pixels };
+    },
+
+    putImageData: function(imageData, x, y) 
+    {
+        // Create a texture to hold the image data
+        const texture = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+        this.gl.texImage2D(
+            this.gl.TEXTURE_2D, 0, this.gl.RGBA, imageData.width, imageData.height, 0, 
+            this.gl.RGBA, this.gl.UNSIGNED_BYTE, imageData.data
+        );
+    
+        // Setup texture parameters
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+
+        this.drawImage(
+            {
+                width: imageData.width,
+                height: imageData.height,
+                texture: texture,
+            },
+            x, y
+        )
+
+        this.gl.deleteTexture(texture);
+    },
+
     loadTexture: function(src, name)
     {
         let tex = this.gl.createTexture();

@@ -162,6 +162,7 @@ body {
     width: 10%;
 }
 
+
 .layer {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -174,8 +175,8 @@ body {
     box-shadow: 6px 6px 0px rgba(0,0,0,0.4);
 }
 
-.layer .active {
-    background-color: #AAAAAA;
+.layer-active {
+    background-color: #585858;
 }
 
 .layer:hover {
