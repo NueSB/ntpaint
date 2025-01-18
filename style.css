@@ -22,7 +22,7 @@ body {
 }
 
 .drawcontainer {
-    background-color: black;///#3a3a3a;
+    background-color: black;
     display: grid;
     height: 95%;
     grid-template-columns: 90% 10%;
@@ -158,7 +158,6 @@ body {
 
 .layercontainer {
     display: grid;
-    display: none;
     position: fixed;
     width: 10%;
 }

@@ -64,7 +64,7 @@ class Layer {
         // id is used for reference in the graphics api, since textures use a string. current date timestamp - layer list
         // length in case of multiple being created on a single timestep
         this.id = Date.now() - g_layers.length;
-        this.renderTarget = Graphics.createRenderTarget( this.id );
+        this.renderTarget = Graphics.createRenderTarget( this.id, canvasWidth, canvasHeight );
         // might be useful later for "usable area" compression or so. unused atm
         this.width = canvasWidth;
         this.height = canvasHeight;
@@ -194,6 +194,10 @@ function drawBackbuffer( region )
     }
 
     Graphics.setRenderTarget("backbuffer");
+    {
+        Graphics.save();
+        Graphics.translate(0, canvasHeight);
+        Graphics.scale(1, -1);
         Graphics.drawColor = new Color("#DDDDDD");
         Graphics.fillRect(region.x, region.y, region.w, region.h);
         //ctx_b.clearRect(region.x, region.y, region.w, region.h);
@@ -205,6 +209,8 @@ function drawBackbuffer( region )
                     region.x, region.y, region.w, region.h, 
                     region.x, region.y, region.w, region.h );
         }
+        Graphics.restore();
+    }
     Graphics.setRenderTarget(null);
 }
 
@@ -337,7 +343,7 @@ function createLayer(index)
     var i = g_layers.length - 1;
     uiLayerTemplate.style.display = "none";
 
-    layerUI.querySelector("span").innerHTML = `Layer ${g_layers.length}`;
+    layerUI.querySelector("span").innerHTML = layer.id;
     layerUI.onclick = ()=>{ setActiveLayer( i ) };
     //layerUI.querySelector(".layer-img").appendChild( layer.canvas );
     uiLayerList.appendChild( layerUI );
@@ -355,6 +361,8 @@ function setActiveLayer(i)
     {
         pushUndoHistory();
     }
+
+    console.log(g_currentLayer.id);
 }
 
 // https://stackoverflow.com/questions/17386707/how-to-check-if-a-canvas-is-blank
@@ -643,9 +651,10 @@ Object.keys(g_actionKeys).forEach(action => {
         createLayer(i);
     }
 
-    drawLine( Vec2(0,0), Vec2(1024, 1024), 16, 3);
 
     setActiveLayer( 0 );
+
+    drawLine( Vec2(0,0), Vec2(1024, 1024), 16, 3);
     
     Graphics.setRenderTarget("backbuffer");
 
@@ -840,7 +849,7 @@ function drawLine(start,end,brushSize,spacing)
     */
 
     //g_layerctx.globalCompositeOperation = "source-over";
-    Graphics.setRenderTarget( "backbuffer" );
+    Graphics.setRenderTarget( g_currentLayer.id );
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
         Graphics.pushInstanceData( 
@@ -867,6 +876,8 @@ function drawLine(start,end,brushSize,spacing)
     region.y = Math.floor(region.y) - brushSize/2;
     region.w = Math.floor(region.w) + brushSize;
     region.h = Math.floor(region.h) + brushSize;
+
+    drawBackbuffer();
 
     /*
     if (debug)
