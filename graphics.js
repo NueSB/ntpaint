@@ -239,9 +239,9 @@ export const Graphics = {
         for(var i = 0; i < numInstances; i++)
         {
             const p = this.instanceData.positions[i];
-            m4.multiply(m4.translation(p.x, p.y, 0), m4.scaling(p.w, p.h, 1), matrices[i]);
-            //m4.multiply(matrix, m4.translation(p.x,p.y,0), matrices[i]);
-            //m4.multiply(matrices[i], m4.scaling(p.w, p.h, 1), matrices[i]);
+            m4.multiply(m4.translation(p.x, p.y, 0), 
+                        m4.scaling(p.w, p.h, 1), 
+                        matrices[i]);
         }
         
         // upload the new matrix data
@@ -271,8 +271,11 @@ export const Graphics = {
 
     clearRect: function(x,y,w,h)
     {
-        // STUB
-        return;
+        this.gl.enable( this.gl.SCISSOR_TEST );
+        this.gl.scissor( x, y, w, h );
+        this.gl.clearColor( 0, 0, 0, 0 );
+        this.gl.clear( this.gl.COLOR_BUFFER_BIT );
+        this.gl.disable( this.gl.SCISSOR_TEST );
     },
 
     setShader: function(shader)

@@ -241,22 +241,18 @@ function mainDraw(customClear)
     //if (!customClear || customClear.force)
     {
         Graphics.clearRect(0,0, canvas.width, canvas.height);
-        Graphics.drawColor = new Color("#909999");
-        Graphics.fillRect(0, 0, canvasWidth, canvasHeight);
-        Graphics.drawColor = Color.white;
-        Graphics.tintColor = Color.white;
-        Graphics.save();
-        Graphics.translate(0, canvasHeight)
-        Graphics.scale(1, -1);
-        Graphics.drawImage( "backbuffer", 0, 0);
-        Graphics.restore();
-    }/*
-    else
-    {
-        ctx.clearRect(customClear.x, customClear.y, customClear.w, customClear.h);
-        ctx.drawImage( backbuffer, 0, 0 );
     }
-    */
+
+    Graphics.drawColor = new Color("#909999");
+    Graphics.fillRect(0, 0, canvasWidth, canvasHeight);
+    Graphics.drawColor = Color.white;
+    Graphics.tintColor = Color.white;
+    Graphics.save();
+    Graphics.translate(0, canvasHeight)
+    Graphics.scale(1, -1);
+    Graphics.drawImage( "backbuffer", 0, 0);
+    Graphics.restore();
+    
 
     /*
     if (debug)
@@ -698,12 +694,9 @@ function rescaleViewCanvas()
 
 function clearLayer()
 {
-    // STUB
-    return;
-    g_layerctx.fillStyle = "#FF0000";
-    g_layerctx.globalCompositeOperation = "destination-out";
-    Graphics.fillRect(0,0,g_currentLayer.width, g_currentLayer.height);
-    g_layerctx.globalCompositeOperation = "source-over";
+    Graphics.setRenderTarget( g_currentLayer.id );
+        Graphics.clearRect(0,0,g_currentLayer.width, g_currentLayer.height);
+    Graphics.setRenderTarget( null );
     pushUndoHistory();
     drawBackbuffer();
     mainDraw();
