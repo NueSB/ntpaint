@@ -395,12 +395,6 @@ function setActiveLayer(i)
     g_currentLayer.uiElement.classList.toggle("layer-active");
 
     uiLayerOpacity.value = Math.floor(g_currentLayer.opacity * 100);
-
-
-    if (isCanvasBlank( g_currentLayer.id ))
-    {
-        pushUndoHistory();
-    }
 }
 
 // value 0-100
@@ -890,6 +884,7 @@ function redo()
 
 function pushUndoHistory()
 {
+    
     if (g_undoPosition != 0)
     {
         for( var i = 0; i < g_undoPosition; i++)
@@ -1251,6 +1246,12 @@ function drawStart(e)
 
         default:
             drawing = true;
+            
+            // push a new undo state to revert to blank canvas
+            if (isCanvasBlank( g_currentLayer.id ))
+            {
+                pushUndoHistory();
+            }
             drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         break;
     }
