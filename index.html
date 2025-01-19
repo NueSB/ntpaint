@@ -1,4 +1,5 @@
 <head>
+    <script src="lib/sortable.min.js"></script>
     <script src="script.js" type="module" defer></script>
     <link rel="stylesheet" href="style.css">
     <title>ntpaint v0.2</title>
@@ -7,16 +8,19 @@
     <div class="toast noselect">test</div>
     <div class="layercontainer">
         <input type="range" min="0" max="100" value="1" id="opacity-ctrl"/>
-        <div class="layer noselect">
-            <div class="layer-img"></div>
-            <div class="layer-text">
-                <span>TEMPLATE LAYER</span>
-                <span>100% normal</span>
-            </div>
-            <div class="layer-buttons">
-                <div></div>
+        <div id="layerlist">
+            <div class="layer noselect">
+                <div class="layer-img"></div>
+                <div class="layer-text">
+                    <span>TEMPLATE LAYER</span>
+                    <span>100% normal</span>
+                </div>
+                <div class="layer-buttons">
+                    <div></div>
+                </div>
             </div>
         </div>
+
     </div>
     <div id="colorpicker">
         <div class="colorcontainer">

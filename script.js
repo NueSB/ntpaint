@@ -34,7 +34,8 @@ var canvas = document.querySelector("#c"),
         }
     ),
     uiCharacterIcon = document.querySelector("#overlaychar-img"),
-    uiLayerList = document.querySelector(".layercontainer"),
+    uiLayerContainer = document.querySelector(".layercontainer"),
+    uiLayerList = document.querySelector("#layerlist"),
     uiLayerTemplate = document.querySelector(".layer"),
     uiLayerOpacity = document.querySelector("#opacity-ctrl");
 //
@@ -170,13 +171,6 @@ const Vec2 = function(x,y)
       }
   }
 }
-
-let debugcanvas = document.createElement("canvas");
-debugcanvas.height = canvasHeight;
-debugcanvas.width = canvasWidth;
-var ctx_dbg = debugcanvas.getContext("2d");
-let debug = false;
-
 
 function main()
 {
@@ -349,8 +343,7 @@ function createLayer(index)
     var i = g_layers.length - 1;
     uiLayerTemplate.style.display = "none";
 
-    layer.uiElement = layerUI;
-    console.log(layer.uiElement);
+    layer.uiElement = layerUI; 
 
     layerUI.querySelector("span").innerHTML = layer.name;
     layerUI.onclick = ()=>{ setActiveLayer( i ) };
@@ -617,6 +610,13 @@ Object.keys(g_actionKeys).forEach(action => {
         g_keyStates.set(action.key, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
 })
 
+{
+    let debugcanvas = document.createElement("canvas");
+    debugcanvas.height = canvasHeight;
+    debugcanvas.width = canvasWidth;
+    var ctx_dbg = debugcanvas.getContext("2d");
+    let debug = false;
+
 
     let icon = document.createElement("img");
     icon.src = "images/placeholder.png";
@@ -661,6 +661,7 @@ Object.keys(g_actionKeys).forEach(action => {
             setLayerOpacity( -1, e.target.value );
         }
     );
+
     
     Graphics.setup( gl );
     
@@ -681,6 +682,20 @@ Object.keys(g_actionKeys).forEach(action => {
         createLayer(i);
     }
 
+    let sortable = new Sortable(uiLayerList, 
+        {
+            animation: 150,
+            onUpdate: function(e)
+            {
+                console.log(e.oldDraggableIndex, e.newDraggableIndex);
+                array_move(g_layers, 
+                    e.oldDraggableIndex-1,
+                    e.newDraggableIndex-1);
+                drawBackbuffer();
+            }
+        }
+    );
+
 
     setActiveLayer( 0 );
 
@@ -698,7 +713,7 @@ Object.keys(g_actionKeys).forEach(action => {
     g_isLoaded = true;
     mainDraw();
     drawBackbuffer();
-
+}
 
 
 function displayToast(message)
@@ -1509,3 +1524,21 @@ window.addEventListener( "pointermove", e => {
     );
     setColor(0, new Color(rgb[0], rgb[1], rgb[2]));
 } )
+
+//https://stackoverflow.com/questions/5306680/move-an-array-element-from-one-array-position-to-another
+function array_move(arr, old_index, new_index) {
+    while (old_index < 0) {
+        old_index += arr.length;
+    }
+    while (new_index < 0) {
+        new_index += arr.length;
+    }
+    if (new_index >= arr.length) {
+        var k = new_index - arr.length + 1;
+        while (k--) {
+            arr.push(undefined);
+        }
+    }
+    arr.splice(new_index, 0, arr.splice(old_index, 1)[0]);
+    return arr; // for testing purposes
+};
