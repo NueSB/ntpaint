@@ -59,6 +59,7 @@ class Layer {
     width = 0;
     height = 0;
     opacity = 1;
+    blendMode = 0;
     renderTarget = 0;
     id = 0;
     uiElement = null;
@@ -69,7 +70,7 @@ class Layer {
         this.name = name;
         // id is used for reference in the graphics api, since textures use a string. current date timestamp - layer list
         // length in case of multiple being created on a single timestep
-        this.id = Date.now() - g_layers.length;
+        this.id = Date.now() + g_layers.length;
         this.renderTarget = Graphics.createRenderTarget( this.id, canvasWidth, canvasHeight );
         // might be useful later for "usable area" compression or so. unused atm
         this.width = canvasWidth;
@@ -214,7 +215,6 @@ function drawBackbuffer( region )
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             // ctx.globalCompositeOperation = LAYER MODE HERE
                 Graphics.globalAlpha = g_layers[i].opacity;
-                console.log(Graphics.globalAlpha);
                 Graphics.drawImage( g_layers[i].renderTarget.texture, 
                     region.x, region.y, region.w, region.h, 
                     region.x, region.y, region.w, region.h );
@@ -250,7 +250,7 @@ function mainDraw(customClear)
     
     //if (!customClear || customClear.force)
     {
-        Graphics.clearRect(0,0, canvas.width, canvas.height);
+        //Graphics.clearRect(0,0, canvas.width, canvas.height);
     }
 
     Graphics.drawColor = new Color("#909999");
@@ -352,7 +352,7 @@ function createLayer(index)
     layer.uiElement = layerUI;
     console.log(layer.uiElement);
 
-    layerUI.querySelector("span").innerHTML = layer.id;
+    layerUI.querySelector("span").innerHTML = layer.name;
     layerUI.onclick = ()=>{ setActiveLayer( i ) };
     //layerUI.querySelector(".layer-img").appendChild( layer.canvas );
     uiLayerList.appendChild( layerUI );
@@ -695,7 +695,8 @@ Object.keys(g_actionKeys).forEach(action => {
     */
 
     g_isLoaded = true;
-    mainDraw();    
+    mainDraw();
+    drawBackbuffer();
 
 
 
@@ -723,7 +724,7 @@ function rescaleViewCanvas()
 function clearLayer()
 {
     Graphics.setRenderTarget( g_currentLayer.id );
-        Graphics.clearRect(0,0,g_currentLayer.width, g_currentLayer.height);
+    Graphics.clearRect(0,0,g_currentLayer.width, g_currentLayer.height);
     Graphics.setRenderTarget( null );
     pushUndoHistory();
     drawBackbuffer();
@@ -1065,10 +1066,12 @@ function executeFloodFill(x, y, color)
 
 function eyedrop(x,y, mouseIndex = 0)
 {
-    x = Math.floor(x), y = Math.floor(y);
-    let pixel = x*4 + y*g_currentLayer.width*4;
-    let data = g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height).data;
+    x = Math.floor(x), y = Math.floor(g_currentLayer.height-y);
 
+    let pixel = x*4 + y*g_currentLayer.width*4;
+    Graphics.setRenderTarget( g_currentLayer.id ); 
+    let data = Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height).data;
+    console.log(data);
     let srcColor = new Color(
         data[ pixel ],
         data[ pixel + 1 ],
