@@ -1,6 +1,6 @@
-import { Color } from "./color.js";
-import { Picker } from "./picker.js";
-import { Graphics, m4 } from "./graphics.js";
+import { Color } from "./lib/color.js";
+import { Picker } from "./lib/picker.js";
+import { Graphics, m4 } from "./lib/graphics.js";
 
 "use strict";
 
