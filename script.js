@@ -883,10 +883,7 @@ function drawLine(start,end,brushSize,spacing)
     //g_layerctx.globalCompositeOperation = "source-over";
 
     Graphics.setRenderTarget( g_currentLayer.id );
-    gl.enable(gl.BLEND);
 
-    gl.blendEquation( g_currentTool == 3 ? gl.FUNC_SUBTRACT : gl.FUNC_ADD); 
-    gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
 
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
@@ -901,8 +898,14 @@ function drawLine(start,end,brushSize,spacing)
         pos.x += step.x;
         pos.y += step.y;
     }
+    
+    gl.enable(gl.BLEND);
+    gl.blendEquation( g_currentTool == 3 ? gl.FUNC_REVERSE_SUBTRACT  : gl.FUNC_ADD); 
+    gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
 
     Graphics.drawInstanceRects();
+
+    gl.blendEquation( gl.FUNC_ADD ); 
     Graphics.setRenderTarget( null );
 
     let region = { x: start.x < end.x ? start.x : end.x,
