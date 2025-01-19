@@ -105,7 +105,7 @@ body {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(2, 1fr);
     grid-column-gap: 0px;
-    grid-row-gap: 0px; 
+    grid-row-gap: 0px;
 }
 
 #colorpicker canvas { 
@@ -200,6 +200,10 @@ body {
     object-fit: scale-down;
 }
 
+.opacity-ctrl {
+    padding: 200px;
+}
+
 .layer-text {
     color: #AAAAAA;
     text-shadow: 1px 1px black;
@@ -222,6 +226,7 @@ body {
     color: white;
     opacity: 0%;
     animation: toast 2s forwards;
+    pointer-events: none;
 }
 
 @keyframes charbob {

@@ -35,7 +35,8 @@ var canvas = document.querySelector("#c"),
     ),
     uiCharacterIcon = document.querySelector("#overlaychar-img"),
     uiLayerList = document.querySelector(".layercontainer"),
-    uiLayerTemplate = document.querySelector(".layer");
+    uiLayerTemplate = document.querySelector(".layer"),
+    uiLayerOpacity = document.querySelector("#opacity-ctrl");
 //
     var canvasWidth = 1024;
     var canvasHeight = 1024;
@@ -57,6 +58,7 @@ class Layer {
     name = "X";
     width = 0;
     height = 0;
+    opacity = 1;
     renderTarget = 0;
     id = 0;
     uiElement = null;
@@ -204,11 +206,15 @@ function drawBackbuffer( region )
         Graphics.scale(1, -1);
         Graphics.drawColor = new Color("#DDDDDD");
         Graphics.fillRect(region.x, region.y, region.w, region.h);
-        //ctx_b.clearRect(region.x, region.y, region.w, region.h);
+        //Graphics.clearRect(region.x, region.y, region.w, region.h);
 
         for (var i = g_layers.length-1; i >= 0 ; i--)
         {
+            gl.enable ( gl.BLEND );
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             // ctx.globalCompositeOperation = LAYER MODE HERE
+                Graphics.globalAlpha = g_layers[i].opacity;
+                console.log(Graphics.globalAlpha);
                 Graphics.drawImage( g_layers[i].renderTarget.texture, 
                     region.x, region.y, region.w, region.h, 
                     region.x, region.y, region.w, region.h );
@@ -364,11 +370,27 @@ function setActiveLayer(i)
     
     g_currentLayer.uiElement.classList.toggle("layer-active");
 
+    uiLayerOpacity.value = Math.floor(g_currentLayer.opacity * 100);
+
 
     if (isCanvasBlank( g_currentLayer.id ))
     {
         pushUndoHistory();
     }
+}
+
+// value 0-100
+function setLayerOpacity( index, opacity )
+{
+    let layer = null;
+    if (index == -1)
+        layer = g_currentLayer;
+    else
+        layer = g_layers[index];
+
+    layer.uiElement.querySelector(".layer-text").children[1].innerHTML = `${opacity}% normal`;
+    layer.opacity = opacity / 100;
+    drawBackbuffer();
 }
 
 // https://stackoverflow.com/questions/17386707/how-to-check-if-a-canvas-is-blank
@@ -634,6 +656,11 @@ Object.keys(g_actionKeys).forEach(action => {
     button.onclick = function() { clearLayer() };
     uiBottomToolbar.appendChild(button);
 
+    uiLayerOpacity.addEventListener("input", e=>
+        {
+            setLayerOpacity( -1, e.target.value );
+        }
+    );
     
     Graphics.setup( gl );
     
