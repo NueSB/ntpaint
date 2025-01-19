@@ -881,7 +881,13 @@ function drawLine(start,end,brushSize,spacing)
     */
 
     //g_layerctx.globalCompositeOperation = "source-over";
+
     Graphics.setRenderTarget( g_currentLayer.id );
+    gl.enable(gl.BLEND);
+
+    gl.blendEquation( g_currentTool == 3 ? gl.FUNC_SUBTRACT : gl.FUNC_ADD); 
+    gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
+
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
         Graphics.pushInstanceData( 
@@ -1066,6 +1072,7 @@ function executeFloodFill(x, y, color)
 
 function eyedrop(x,y, mouseIndex = 0)
 {
+    // texture is flipped in memory, flip sample pos
     x = Math.floor(x), y = Math.floor(g_currentLayer.height-y);
 
     let pixel = x*4 + y*g_currentLayer.width*4;
@@ -1298,7 +1305,29 @@ function drawEnd(e)
 function exportCopy(save)
 {
     displayToast("exporting...");
-    backbuffer.toBlob((blob) => {
+    drawBackbuffer();
+    Graphics.setRenderTarget( "backbuffer" );
+    let data = Graphics.getImageData(0,0,canvasWidth,canvasHeight).data;
+    console.log(data);
+    tempCanvas.width = canvasWidth;
+    tempCanvas.height = canvasHeight;
+
+    let imgData = tempCtx.createImageData(canvasWidth, canvasHeight);
+    
+    const bytesPerPixel = 4; // Assuming RGBA format
+    const rowSize = canvasWidth * bytesPerPixel;
+    for (let row = 0; row < canvasHeight; row++) {
+        const srcStart = row * rowSize;
+        const dstStart = (canvasHeight - row - 1) * rowSize;
+
+        // Copy the row to its flipped position
+        imgData.data.set(data.subarray(srcStart, srcStart + rowSize), dstStart);
+    }
+
+    tempCtx.putImageData(imgData, 0,0);
+
+
+    tempCanvas.toBlob((blob) => {
         if (save)
         {
             const a = document.createElement('a');
