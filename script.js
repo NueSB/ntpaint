@@ -365,7 +365,7 @@ function setActiveLayer(i)
     g_currentLayer.uiElement.classList.toggle("layer-active");
 
 
-    if (isCanvasBlank( g_currentLayer.renderTarget ))
+    if (isCanvasBlank( g_currentLayer.id ))
     {
         pushUndoHistory();
     }
@@ -374,15 +374,11 @@ function setActiveLayer(i)
 // https://stackoverflow.com/questions/17386707/how-to-check-if-a-canvas-is-blank
 function isCanvasBlank(renderTarget) 
 {
-    // STUB
-    return false;
-    /*
-    const pixelBuffer = new Uint32Array(
-      ctx.getImageData(0, 0, canvas.width, canvas.height).data.buffer
-    );
-  
+    Graphics.setRenderTarget( renderTarget );
+    const pixelBuffer = new Uint8Array( canvasWidth * canvasHeight * 4 );
+    gl.readPixels( 0, 0, canvasWidth, canvasHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixelBuffer )
+
     return !pixelBuffer.some(color => color !== 0);
-    */
 }
 
 var g_viewTransform = Vec2(0,0);
@@ -798,16 +794,15 @@ function undo()
 
 function redo()
 {
-    // STUB
-    return;
     g_undoPosition -= 1;
     if (g_undoPosition < 0)
         g_undoPosition = 0;
 
     let undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
 
-    setActiveLayer( undoValue.layer )
-    g_layerctx.putImageData(undoValue.data, 0, 0);
+    setActiveLayer( undoValue.layer );
+    Graphics.setRenderTarget( g_currentLayer.id );
+    Graphics.putImageData(undoValue.data, 0, 0);
     
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );

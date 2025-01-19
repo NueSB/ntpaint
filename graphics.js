@@ -291,6 +291,7 @@ export const Graphics = {
         {
             texture = this.textures[texture];
         }
+
         if (arguments.length == 5)
         {
             // tex, dx, dy, dw, dh
@@ -316,7 +317,6 @@ export const Graphics = {
             sw = texture.width;
             sh = texture.height;
         }
-
         this.setShader("texture");
         if (dw === undefined)
         {
@@ -333,7 +333,6 @@ export const Graphics = {
         if (dx === undefined) dx = 0;
         if (dy === undefined) dy = 0;
         
-
         this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_2D, texture.texture);
 
@@ -366,31 +365,19 @@ export const Graphics = {
     {
         const pixels = new Uint8Array(width * height * 4); // RGBA
         this.gl.readPixels(x, y, width, height, this.gl.RGBA, this.gl.UNSIGNED_BYTE, pixels);
-        return { w: width, h: height, data: pixels };
+        
+        return { width: width, height: height, data: pixels };
     },
 
-    putImageData: function(imageData, x, y) 
+    // expects { width, height, data (ubyte rgba list) }
+    putImageData: function(img, x, y) 
     {
-        // Create a texture to hold the image data
-        const texture = this.gl.createTexture();
-        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-        this.gl.texImage2D(
-            this.gl.TEXTURE_2D, 0, this.gl.RGBA, imageData.width, imageData.height, 0, 
-            this.gl.RGBA, this.gl.UNSIGNED_BYTE, imageData.data
-        );
-    
-        // Setup texture parameters
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-
-        this.drawImage(
-            {
-                width: imageData.width,
-                height: imageData.height,
-                texture: texture,
-            },
-            x, y
-        )
+        let texture = this.createGLTexture( img.width, img.height, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img.data );
+        
+        this.setShader("texture");
+        this.gl.uniform1i( this.currentShader.vars["overwriteAlpha"].location, 1 );
+        Graphics.drawImage( { width: img.width, height: img.height, texture: texture }, x, y);
+        this.gl.uniform1i( this.currentShader.vars["overwriteAlpha"].location, 0 );
 
         this.gl.deleteTexture(texture);
     },
@@ -635,7 +622,7 @@ export const Graphics = {
     },
 
     // BINDS THE GL TEXTURE AND DOES NOT RETURN IT! CAREFUL!!
-    createGLTexture: function(width, height, aformat = undefined, atype = undefined)
+    createGLTexture: function(width, height, aformat = undefined, atype = undefined, data = null)
     {
         const rTexture = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, rTexture);
@@ -644,7 +631,6 @@ export const Graphics = {
         const border = 0;
         const format = internalFormat;
         const type = atype == undefined ? this.gl.UNSIGNED_BYTE : atype;
-        const data = null;
         this.gl.texImage2D(this.gl.TEXTURE_2D, level, internalFormat,
                       width, height, border,
                       format, type, data);
@@ -882,6 +868,7 @@ export const Graphics = {
                     uniform vec2 uResolution;
                     uniform mat4 uMatrix;
                     uniform mat3 uTexMatrix;
+
                     out vec2 vTexcoord;
                     
                     void main()
@@ -896,13 +883,18 @@ export const Graphics = {
                     
                     in vec2 vTexcoord;
                     uniform sampler2D uTexture;
+                    uniform bool overwriteAlpha;
+
                     out vec4 outCol;
                     uniform vec4 uColor;
 
                     void main()
                     {
-                        outCol = texture(uTexture, vTexcoord);
-                        if (outCol.a < 0.01)
+                        vec2 uv = vTexcoord;
+                        if (overwriteAlpha)
+                            uv.y *= -1.0;
+                        outCol = texture(uTexture, uv);
+                        if (outCol.a < 0.01 && !overwriteAlpha)
                             discard;
                         outCol.rgb *= uColor.rgb;
                         //outCol.rgb = vec3(vTexcoord.xy,0.0);
