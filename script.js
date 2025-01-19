@@ -668,6 +668,7 @@ Object.keys(g_actionKeys).forEach(action => {
     
     Graphics.createRenderTarget("backbuffer", canvasWidth, canvasHeight);
 
+    setColor(0, Color.black);
     setColor(1, Color.white);
     setTool(0);
 
@@ -898,7 +899,7 @@ function drawLine(start,end,brushSize,spacing)
         pos.x += step.x;
         pos.y += step.y;
     }
-    
+
     gl.enable(gl.BLEND);
     gl.blendEquation( g_currentTool == 3 ? gl.FUNC_REVERSE_SUBTRACT  : gl.FUNC_ADD); 
     gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
@@ -997,10 +998,12 @@ function FFAnimation()
             {         
                 let currentColor = {r: bucketAnimation.data[ pixel ], 
                                     g: bucketAnimation.data[ pixel + 1 ], 
-                                    b: bucketAnimation.data[ pixel + 2 ] };
+                                    b: bucketAnimation.data[ pixel + 2 ],
+                                    a: bucketAnimation.data[ pixel + 3 ] };
         
                 // todo: replace with a tolerance var
-                if (colorDistance(bucketAnimation.srcColor, currentColor) > 10)
+                if (colorDistance(bucketAnimation.srcColor, currentColor) > 10
+                    || Math.abs(bucketAnimation.srcColor.a - currentColor.a) > 10)
                 {
                     //console.log(`breaking; too high color dist @ ${point.x}, ${point.y}`)
                     canProcess = false;
@@ -1029,7 +1032,8 @@ function FFAnimation()
         i++;
     }
 
-    g_layerctx.putImageData(bucketAnimation.imageData, 0, 0);
+    Graphics.setRenderTarget( g_currentLayer.id );
+    Graphics.putImageData(bucketAnimation.imageData, 0, 0);
     
     drawBackbuffer();
     mainDraw();
@@ -1050,10 +1054,13 @@ function FFAnimation()
 // normal flood fill. only kept for reference
 function executeFloodFill(x, y, color)
 {
-    x = Math.floor(x), y = Math.floor(y);
+    // again; flip coords, flipped texture
+    
+    Graphics.setRenderTarget( g_currentLayer.id );
+    x = Math.floor(x), y = Math.floor(g_currentLayer.height-y);
     bucketAnimation.active = true;
     bucketAnimation.filledPixels = new Uint8Array(g_currentLayer.width * g_currentLayer.height);
-    bucketAnimation.imageData = g_layerctx.getImageData(0, 0, g_currentLayer.width, g_currentLayer.height);
+    bucketAnimation.imageData = Graphics.getImageData(0, 0, g_currentLayer.width, g_currentLayer.height);
     bucketAnimation.data =  bucketAnimation.imageData.data;
     bucketAnimation.iterations = 0;
     bucketAnimation.iterationSkipAmt = 1;
@@ -1062,7 +1069,8 @@ function executeFloodFill(x, y, color)
     bucketAnimation.srcColor = {
          r:  bucketAnimation.data[ pixel ],
          g:  bucketAnimation.data[ pixel + 1 ],
-         b:  bucketAnimation.data[ pixel + 2] };
+         b:  bucketAnimation.data[ pixel + 2],
+         a:  bucketAnimation.data[ pixel + 3 ] };
 
     bucketAnimation.replacementColor = color;
     //console.log(`getting data @ ${x},${y}: ${JSON.stringify( bucketAnimation.srcColor)}`);
