@@ -373,11 +373,14 @@ export const Graphics = {
     putImageData: function(img, x, y) 
     {
         let texture = this.createGLTexture( img.width, img.height, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img.data );
+        this.gl.disable( this.gl.BLEND );
         
         this.setShader("texture");
         this.gl.uniform1i( this.currentShader.vars["overwriteAlpha"].location, 1 );
         Graphics.drawImage( { width: img.width, height: img.height, texture: texture }, x, y);
         this.gl.uniform1i( this.currentShader.vars["overwriteAlpha"].location, 0 );
+
+        this.gl.enable( this.gl.BLEND );
 
         this.gl.deleteTexture(texture);
     },
