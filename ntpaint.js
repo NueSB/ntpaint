@@ -37,7 +37,9 @@ var canvas = document.querySelector("#c"),
     uiLayerContainer = document.querySelector(".layercontainer"),
     uiLayerList = document.querySelector("#layerlist"),
     uiLayerTemplate = document.querySelector(".layer"),
-    uiLayerOpacity = document.querySelector("#opacity-ctrl");
+    uiLayerOpacity = document.querySelector("#opacity-ctrl"),
+    uiLayerAdd = document.querySelector("#add-layer"),
+    uiLayerRemove = document.querySelector("#remove-layer");
 //
     var canvasWidth = 1024;
     var canvasHeight = 1024;
@@ -346,9 +348,38 @@ function createLayer(index)
     layer.uiElement = layerUI; 
 
     layerUI.querySelector("span").innerHTML = layer.name;
-    layerUI.onclick = ()=>{ setActiveLayer( i ) };
+    layerUI.onclick = (e) => {
+        // traverse back up to main layer element as clicks can select any child
+        let curElement = e.target;
+        while( curElement.parentElement != uiLayerList )
+        {
+            curElement = curElement.parentElement;
+        }
+        // sub 1 as the hidden template element is still there
+        let index = Array.prototype.indexOf.call(uiLayerList.children, curElement)-1;
+        setActiveLayer( index ) 
+    };
     //layerUI.querySelector(".layer-img").appendChild( layer.canvas );
     uiLayerList.appendChild( layerUI );
+}
+
+function removeLayer(layer)
+{
+    if (!layer)
+        return;
+    if (g_layers.length == 1)
+    {
+        clearLayer();
+        return;
+    }
+    uiLayerList.removeChild(layer.uiElement);
+    Graphics.deleteRenderTarget(layer.id);
+    g_layers.splice( g_layers.indexOf(layer), 1 );
+    if (layer == g_currentLayer)
+    {
+        setActiveLayer(0);
+    }
+    drawBackbuffer();
 }
 
 function setActiveLayer(i)
@@ -682,6 +713,9 @@ Object.keys(g_actionKeys).forEach(action => {
         createLayer(i);
     }
 
+    uiLayerAdd.addEventListener("click", e=>{ createLayer(g_layers.length) } );    
+    uiLayerRemove.addEventListener("click", e=>{ removeLayer(g_currentLayer) } );
+
     let sortable = new Sortable(uiLayerList, 
         {
             animation: 150,
@@ -825,7 +859,7 @@ function undo()
     }
 
     let undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
-
+    
     setActiveLayer( undoValue.layer );
     Graphics.setRenderTarget( g_currentLayer.id );
     Graphics.putImageData(undoValue.data, 0, 0);
@@ -872,6 +906,7 @@ function pushUndoHistory()
 
     Graphics.setRenderTarget( g_currentLayer.id );
     g_undoHistory.push( {
+        type: "DRAW",
         layer: g_currentLayer, 
         data: Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
     } );
