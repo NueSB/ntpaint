@@ -337,7 +337,7 @@ function setTool(i)
 function createLayer(index, name, pushUndo=false)
 {
     let layer = new Layer( !name ? "Layer " + (g_layers.length-1).toString() : name );
-    g_layers.push( layer );
+    g_layers.unshift( layer );
     console.log(index);
     if (index)
         array_move(g_layers, g_layers.length-1, index);
@@ -749,9 +749,9 @@ Object.keys(g_actionKeys).forEach(action => {
     displayToast("loaded!");
     
 
-    for (var i = 0; i < 4; i++)
+    for (var i = 0; i < 1; i++)
     {
-        createLayer( undefined, ["top", "mid", "mid2", "bottom"][i] );
+        createLayer( undefined, "Layer " + (i+1) );
     }
 
     uiLayerAdd.addEventListener("click", e=>{ createLayer(undefined, undefined, true) } );    
@@ -1010,7 +1010,7 @@ function redo()
             break;
         
         case "LAYER_ADD":
-            // readd the layer
+            // readd the layer. no need to recreate data as new layers are blank
             let layer = createLayer( undoValue.layerIndex, undoValue.layer.name );
             setActiveLayer( undoValue.layerIndex );
 
