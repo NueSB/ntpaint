@@ -904,7 +904,7 @@ function undo()
     // in this state, you want to not calculate the init value and instead use the normal 
     // "one next to this one" undovalue.
     // we don't want to redo operations, so this is a special edgecase where the pointer is 'OOB'.
-    // as a workaround, we pass a technically null value in and then 
+    // as a workaround, we pass a dummy init value
     let atCurrent = g_undoPosition == -1;
 
     let initState = atCurrent ? {type: "NULL"} : g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
@@ -913,11 +913,16 @@ function undo()
 
     // we skip an extra space if we're at the end of the queue. 
     // otherwise, an extra undo step is needed to get to the previous state
-    g_undoPosition += !initFlag ? 1 + atCurrent : 0;
+    // todo: look further into this, leaving alone as this breaks "check on this step" undo ops
+    g_undoPosition += !initFlag ? 1 : 0;
 
     let undoValue;
     if (g_undoPosition <= g_undoHistory.length-1)
+    {
+        console.log(g_undoPosition);
         undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
+        console.log(undoValue);
+    }    
     else
         undoValue = initState;
 
@@ -950,6 +955,11 @@ function undo()
             setActiveLayer( undoValue.layerIndex );
             Graphics.setRenderTarget( layer.id );
             Graphics.putImageData(undoValue.data, 0, 0);
+
+            // rebuild layer refs
+            undoValue.layer = layer;
+            undoValue.layerIndex = g_layers.indexOf( layer );
+
             break;
         
         default:
@@ -967,6 +977,7 @@ function undo()
 
 function redo()
 {
+    console.log(g_undoPosition);
     // bounds check
     if (g_undoHistory.length == 0 || g_undoPosition < 0)
         return;
@@ -977,7 +988,7 @@ function redo()
     let initFlag = false;
     initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
     
-    g_undoPosition -= !initFlag ? 1 + atBeginning : 0;
+    g_undoPosition -= !initFlag ? 1 : 0;
 
     let undoValue;
     if (g_undoPosition >= 0)
@@ -1002,6 +1013,9 @@ function redo()
             // readd the layer
             let layer = createLayer( undoValue.layerIndex, undoValue.layer.name );
             setActiveLayer( undoValue.layerIndex );
+
+            undoValue.layer = layer;
+            undoValue.layerIndex = g_layers.indexOf( layer );
             break;
         
         default:
