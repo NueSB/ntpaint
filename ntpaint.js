@@ -334,11 +334,13 @@ function setTool(i)
     uiToolIconSpin.play();
 }
 
-function createLayer(index)
+function createLayer(index, name, pushUndo=false)
 {
-    let layer = new Layer( "Layer " + index.toString() );
-    // todo: reordering logic if index != undefined
+    let layer = new Layer( !name ? "Layer " + (g_layers.length-1).toString() : name );
     g_layers.push( layer );
+    console.log(index);
+    if (index)
+        array_move(g_layers, g_layers.length-1, index);
     
     uiLayerTemplate.style = "";
     let layerUI = uiLayerTemplate.cloneNode(true);
@@ -346,6 +348,18 @@ function createLayer(index)
     uiLayerTemplate.style.display = "none";
 
     layer.uiElement = layerUI; 
+
+    if (pushUndo)
+    {
+        const event = {
+            type: "LAYER_ADD",
+            layer: g_currentLayer,
+            index: g_layers.indexOf( g_currentLayer ),
+            // new layers are always blank so no need to store image state
+        };
+
+        pushUndoHistory(event);
+    }
 
     layerUI.querySelector("span").innerHTML = layer.name;
     layerUI.onclick = (e) => {
@@ -356,14 +370,25 @@ function createLayer(index)
             curElement = curElement.parentElement;
         }
         // sub 1 as the hidden template element is still there
-        let index = Array.prototype.indexOf.call(uiLayerList.children, curElement)-1;
-        setActiveLayer( index ) 
+        let i_index = Array.prototype.indexOf.call(uiLayerList.children, curElement)-1;
+        console.log(i_index)
+        setActiveLayer( i_index ) 
     };
     //layerUI.querySelector(".layer-img").appendChild( layer.canvas );
-    uiLayerList.appendChild( layerUI );
+    
+    uiLayerList.appendChild(layerUI);
+    if (index &&
+        index < g_layers.length-1 &&
+        index >= 0)
+    {
+        console.log("insertbefore index", index, g_layers.length-1)
+        uiLayerList.insertBefore( uiLayerList.children[index+1], layerUI );
+    }
+    
+    return layer;
 }
 
-function removeLayer(layer)
+function removeLayer(layer, pushUndo=false)
 {
     if (!layer)
         return;
@@ -372,6 +397,29 @@ function removeLayer(layer)
         clearLayer();
         return;
     }
+    
+    // draw -> remove1 -> remove2
+    // timeline:
+    // undo,
+    // stack pointer is now on remove1.
+    // redo from undo (or elsewhere): SP now on rem1
+    //r rm event contains uuuuuuuuhhhh
+    // layer data and position in the list
+    // (we need this for reinitialization)
+    // layer add-remove is special and procs before pushing the stack pointer backwards.
+    if (pushUndo)
+    {
+        Graphics.setRenderTarget( g_currentLayer.id )
+        const event = {
+            type: "LAYER_REMOVE",
+            layer: g_currentLayer,
+            layerIndex: g_layers.indexOf( g_currentLayer ),
+            data: Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
+        };
+
+        pushUndoHistory(event);
+    }
+    
     uiLayerList.removeChild(layer.uiElement);
     Graphics.deleteRenderTarget(layer.id);
     g_layers.splice( g_layers.indexOf(layer), 1 );
@@ -704,11 +752,11 @@ Object.keys(g_actionKeys).forEach(action => {
 
     for (var i = 0; i < 4; i++)
     {
-        createLayer(i);
+        createLayer( undefined, ["top", "mid", "mid2", "bottom"][i] );
     }
 
-    uiLayerAdd.addEventListener("click", e=>{ createLayer(g_layers.length) } );    
-    uiLayerRemove.addEventListener("click", e=>{ removeLayer(g_currentLayer) } );
+    uiLayerAdd.addEventListener("click", e=>{ createLayer(undefined, undefined, true) } );    
+    uiLayerRemove.addEventListener("click", e=>{ removeLayer(g_currentLayer, true) } );
 
     let sortable = new Sortable(uiLayerList, 
         {
@@ -846,17 +894,56 @@ function swapColors()
 
 function undo()
 {
-    g_undoPosition += 1;
+    let initState = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
+    let initFlag = false;
+    initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
+    
+    g_undoPosition += !initFlag ? 1 : 0;
+    
     if (g_undoPosition > g_undoHistory.length-1)
     {
         g_undoPosition = g_undoHistory.length-1;
     }
 
     let undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
+
+    // undo type is the event that was logged. the state to go back to
+    // when you log an undo event, the thing logged is the Change that was made at that point in time.
+    // undoing will remove that change
     
-    setActiveLayer( undoValue.layer );
-    Graphics.setRenderTarget( g_currentLayer.id );
-    Graphics.putImageData(undoValue.data, 0, 0);
+    // let's sa you have a list like this
+    // you draw a line, add a layer, switch to that layer and draw on that one too
+    // your history will look like this:
+    // DRAW -> LAYER_ADD -> DRAW (empty) -> DRAW
+    // line -> remove L  -> blank canvas -> line 2
+    
+    switch(undoValue.type)
+    {
+        case "DRAW":
+            setActiveLayer( undoValue.layer );
+            Graphics.setRenderTarget( g_currentLayer.id );
+            Graphics.putImageData(undoValue.data, 0, 0);
+            break;
+        
+        case "LAYER_ADD":
+            // remove the layer that was just added and go to the last selected layer
+            removeLayer( undoValue.layer );
+            break;
+        
+        case "LAYER_REMOVE":
+            // add the layer that was removed in this event and switch to it
+            let layer = createLayer( undoValue.layerIndex, undoValue.layer.name );
+            setActiveLayer( g_layers[undoValue.layerIndex] );
+            Graphics.setRenderTarget( layer.id );
+            Graphics.putImageData(undoValue.data, 0, 0);
+            break;
+        
+        default:
+            console.error("ERROR: invalid undo type " + undoValue.type);
+            break;
+    }
+    
+    g_undoPosition += initFlag ? 1 : 0; 
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
@@ -866,15 +953,43 @@ function undo()
 
 function redo()
 {
-    g_undoPosition -= 1;
+    let initState = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
+    let initFlag = false;
+    initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
+    
+    g_undoPosition += !initFlag ? -1 : 0;
+
     if (g_undoPosition < 0)
         g_undoPosition = 0;
 
     let undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
 
-    setActiveLayer( undoValue.layer );
-    Graphics.setRenderTarget( g_currentLayer.id );
-    Graphics.putImageData(undoValue.data, 0, 0);
+    switch(undoValue.type)
+    {
+        case "DRAW":
+            setActiveLayer( undoValue.layer );
+            Graphics.setRenderTarget( g_currentLayer.id );
+            Graphics.putImageData(undoValue.data, 0, 0);
+            break;
+        
+        case "LAYER_REMOVE":
+            // remove that layer again
+            removeLayer( undoValue.layer );
+            break;
+        
+        case "LAYER_ADD":
+            // readd the layer
+            let layer = createLayer( undoValue.layerIndex, undoValue.layer.name );
+            setActiveLayer( g_layers[undoValue.layerIndex] );
+            Graphics.setRenderTarget( layer.id );
+            break;
+        
+        default:
+            console.error("ERROR: invalid undo type " + undoValue.type);
+            break;
+    }
+
+    g_undoPosition += initFlag ? -1 : 0; 
     
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
@@ -882,9 +997,8 @@ function redo()
     mainDraw();
 }
 
-function pushUndoHistory()
+function pushUndoHistory(event)
 {
-    
     if (g_undoPosition != 0)
     {
         for( var i = 0; i < g_undoPosition; i++)
@@ -900,11 +1014,17 @@ function pushUndoHistory()
     }
 
     Graphics.setRenderTarget( g_currentLayer.id );
-    g_undoHistory.push( {
-        type: "DRAW",
-        layer: g_currentLayer, 
-        data: Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
-    } );
+    if (!event)
+    {
+        event = {
+            type: "DRAW",
+            layer: g_currentLayer, 
+            data: Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
+        };
+    }
+    g_undoHistory.push(event);
+    
+    console.log(g_undoHistory);
 }
 
 function drawLine(start,end,brushSize,spacing)
