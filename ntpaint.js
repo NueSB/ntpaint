@@ -489,7 +489,7 @@ var bucketAnimation = {
 }
 var g_undoHistory = [];
 var g_undoMax = 128;
-var g_undoPosition = 0;
+var g_undoPosition = -1;
 var g_keyStates = new Map();
 var g_tools = [
     {
@@ -893,16 +893,27 @@ function swapColors()
 
 function undo()
 {
+    console.log(g_undoPosition);
     // bounds check
-    if (g_undoHistory.length == 0 || g_undoPosition >= g_undoHistory.length-1)
+    if (g_undoHistory.length == 0 || g_undoPosition > g_undoHistory.length-1)
         return;
 
-    // choose to apply state based on current history value or previous (since undoing)
-    let initState = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
+    // choose to apply state based on current history value or previous.
+    // 'at current' is the state you're in when you've redone so many times you're at
+    // the front of the list.
+    // in this state, you want to not calculate the init value and instead use the normal 
+    // "one next to this one" undovalue.
+    // we don't want to redo operations, so this is a special edgecase where the pointer is 'OOB'.
+    // as a workaround, we pass a technically null value in and then 
+    let atCurrent = g_undoPosition == -1;
+
+    let initState = atCurrent ? {type: "NULL"} : g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
     let initFlag = false;
     initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
-    
-    g_undoPosition += !initFlag ? 1 : 0;
+
+    // we skip an extra space if we're at the end of the queue. 
+    // otherwise, an extra undo step is needed to get to the previous state
+    g_undoPosition += !initFlag ? 1 + atCurrent : 0;
 
     let undoValue;
     if (g_undoPosition <= g_undoHistory.length-1)
@@ -957,14 +968,16 @@ function undo()
 function redo()
 {
     // bounds check
-    if (g_undoHistory.length == 0 || g_undoPosition <= 0)
+    if (g_undoHistory.length == 0 || g_undoPosition < 0)
         return;
 
-    let initState = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
+    let atBeginning = g_undoPosition == g_undoHistory.length;
+
+    let initState = atBeginning ? {type: "NULL"} : g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
     let initFlag = false;
     initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
     
-    g_undoPosition -= !initFlag ? 1 : 0;
+    g_undoPosition -= !initFlag ? 1 + atBeginning : 0;
 
     let undoValue;
     if (g_undoPosition >= 0)
@@ -1006,13 +1019,13 @@ function redo()
 
 function pushUndoHistory(event)
 {
-    if (g_undoPosition != 0)
+    if (g_undoPosition > 0)
     {
         for( var i = 0; i < g_undoPosition; i++)
         {
             g_undoHistory.pop();
         }
-        g_undoPosition = 0;
+        g_undoPosition = -1;
     }
 
     if (g_undoHistory.length >= g_undoMax)
