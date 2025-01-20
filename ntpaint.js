@@ -353,8 +353,8 @@ function createLayer(index, name, pushUndo=false)
     {
         const event = {
             type: "LAYER_ADD",
-            layer: g_currentLayer,
-            index: g_layers.indexOf( g_currentLayer ),
+            layer: layer,
+            index: g_layers.indexOf( layer ),
             // new layers are always blank so no need to store image state
         };
 
@@ -381,8 +381,7 @@ function createLayer(index, name, pushUndo=false)
         index < g_layers.length-1 &&
         index >= 0)
     {
-        console.log("insertbefore index", index, g_layers.length-1)
-        uiLayerList.insertBefore( uiLayerList.children[index+1], layerUI );
+        uiLayerList.insertBefore( layerUI, uiLayerList.children[index+1] );
     }
     
     return layer;
@@ -894,6 +893,11 @@ function swapColors()
 
 function undo()
 {
+    // bounds check
+    if (g_undoHistory.length == 0)
+        return;
+
+    // choose to apply state based on current history value or previous (since undoing)
     let initState = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
     let initFlag = false;
     initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
@@ -911,7 +915,7 @@ function undo()
     // when you log an undo event, the thing logged is the Change that was made at that point in time.
     // undoing will remove that change
     
-    // let's sa you have a list like this
+    // let's say you have a list like this
     // you draw a line, add a layer, switch to that layer and draw on that one too
     // your history will look like this:
     // DRAW -> LAYER_ADD -> DRAW (empty) -> DRAW
@@ -943,7 +947,13 @@ function undo()
             break;
     }
     
-    g_undoPosition += initFlag ? 1 : 0; 
+    g_undoPosition += initFlag ? 1 : 0;
+
+        
+    if (g_undoPosition > g_undoHistory.length-1)
+    {
+        g_undoPosition = g_undoHistory.length-1;
+    }
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
@@ -953,11 +963,15 @@ function undo()
 
 function redo()
 {
+    // bounds check
+    if (g_undoHistory.length == 0)
+        return;
+
     let initState = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
     let initFlag = false;
     initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
     
-    g_undoPosition += !initFlag ? -1 : 0;
+    g_undoPosition -= !initFlag ? 1 : 0;
 
     if (g_undoPosition < 0)
         g_undoPosition = 0;
@@ -980,8 +994,7 @@ function redo()
         case "LAYER_ADD":
             // readd the layer
             let layer = createLayer( undoValue.layerIndex, undoValue.layer.name );
-            setActiveLayer( g_layers[undoValue.layerIndex] );
-            Graphics.setRenderTarget( layer.id );
+            setActiveLayer( undoValue.layerIndex );
             break;
         
         default:
@@ -989,8 +1002,12 @@ function redo()
             break;
     }
 
-    g_undoPosition += initFlag ? -1 : 0; 
+    g_undoPosition -= initFlag ? 1 : 0; 
     
+    
+    if (g_undoPosition < 0)
+        g_undoPosition = 0;
+
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
     drawBackbuffer();
