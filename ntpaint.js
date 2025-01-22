@@ -442,6 +442,7 @@ function removeLayer(layer, pushUndo=false)
     g_layers.splice( index, 1 );
     if (layer == g_currentLayer)
     {
+        index = clamp( index, 0, g_layers.length-1 );
         setActiveLayer(index);
     }
     drawBackbuffer();
@@ -780,7 +781,15 @@ Object.keys(g_actionKeys).forEach(action => {
             animation: 150,
             onUpdate: function(e)
             {
-                console.log(e.oldDraggableIndex, e.newDraggableIndex);
+                let targetLayer = g_layers[e.oldDraggableIndex-1];
+                pushUndoHistory( {
+                    type: "REORDER",
+                    layer: targetLayer,
+                    id: targetLayer.id,
+                    old: e.oldDraggableIndex-1,
+                    new: e.newDraggableIndex-1
+                } ); 
+
                 array_move(g_layers, 
                     e.oldDraggableIndex-1,
                     e.newDraggableIndex-1);
@@ -941,16 +950,22 @@ function undo()
             setActiveLayer( undoValue.layer );
             Graphics.setRenderTarget( undoValue.id );
             // find first drawing back from this value
+            let foundEntry = false;
             for(var i = g_undoPosition+1; i < g_undoHistory.length; i++)
             {
                 let entry = g_undoHistory[g_undoHistory.length - 1 - i];
-                if (entry.id == undoValue.id && entry.type == "DRAW")
+                if (entry.id == undoValue.id && (entry.type == "DRAW" || entry.type == "LAYER_ADD"))
                 {
                     undoValue = entry;
+                    foundEntry = entry.type != "LAYER_ADD";
                     break;
                 }
             }
-            Graphics.putImageData(undoValue.data, 0, 0);
+            if (!foundEntry)
+            {
+                clearLayer();
+            } else
+                Graphics.putImageData(undoValue.data, 0, 0);
             break;
         
         case "LAYER_ADD":
@@ -970,8 +985,8 @@ function undo()
                 {
                     console.log( `\tid change: ${entry.id} -> ${layer.id}` );
                     entry.id = layer.id;
-                    entry.layer = layer;
-                    entry.layerIndex = g_layers.indexOf( layer );
+                    if (entry.layer) entry.layer = layer;
+                    if (entry.layerIndex) entry.layerIndex = g_layers.indexOf( layer );
                 }
             });
 
@@ -984,6 +999,13 @@ function undo()
             undoValue.id = layer.id;
             undoValue.layerIndex = g_layers.indexOf( layer );
 
+            break;
+
+        case "REORDER":
+            uiLayerList.insertBefore(undoValue.layer.uiElement, uiLayerList.children[undoValue.old+1])
+            array_move(g_layers, 
+                undoValue.new,
+                undoValue.old);
             break;
         
         default:
@@ -1059,6 +1081,13 @@ function redo()
             undoValue.layer = layer;
             undoValue.id = layer.id;
             undoValue.layerIndex = g_layers.indexOf( layer );
+            break;
+
+        case "REORDER":
+            uiLayerList.insertBefore(undoValue.layer.uiElement, uiLayerList.children[undoValue.new+1])
+            array_move(g_layers, 
+                undoValue.old,
+                undoValue.new);
             break;
         
         default:
@@ -1447,11 +1476,9 @@ function drawStart(e)
 
         default:
             drawing = true;
-            
-            // push a new undo state to revert to blank canvas
-            if (isCanvasBlank( g_currentLayer.id ))
+            if (!g_currentLayer.isDirty)
             {
-                pushUndoHistory();
+
             }
             drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         break;
