@@ -831,12 +831,13 @@ function rescaleViewCanvas()
 }
 
 
-function clearLayer()
+function clearLayer(pushUndo = true)
 {
     Graphics.setRenderTarget( g_currentLayer.id );
     Graphics.clearRect(0,0,g_currentLayer.width, g_currentLayer.height);
     Graphics.setRenderTarget( null );
-    pushUndoHistory();
+    if (pushUndo)
+        pushUndoHistory();
     drawBackbuffer();
     mainDraw();
 }
@@ -963,7 +964,7 @@ function undo()
             }
             if (!foundEntry)
             {
-                clearLayer();
+                clearLayer(false);
             } else
                 Graphics.putImageData(undoValue.data, 0, 0);
             break;
