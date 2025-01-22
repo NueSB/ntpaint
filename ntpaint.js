@@ -65,6 +65,8 @@ class Layer {
     blendMode = 0;
     renderTarget = 0;
     id = 0;
+    canvas = null;
+    ctx = null;
     uiElement = null;
     isDirty = false;
 
@@ -78,11 +80,18 @@ class Layer {
         // might be useful later for "usable area" compression or so. unused atm
         this.width = canvasWidth;
         this.height = canvasHeight;
+        this.canvas = document.createElement("canvas");
+        this.ctx = this.canvas.getContext("2d");
     }
 
     resize(w, h)
     {
 
+    }
+
+    drawCanvas()
+    {
+        
     }
 }
 
@@ -336,11 +345,11 @@ function setTool(i)
 
 function createLayer(index, name, pushUndo=false)
 {
-    let layer = new Layer( !name ? "Layer " + (g_layers.length-1).toString() : name );
+    let layer = new Layer( !name ? "Layer " + (g_layers.length+1).toString() : name );
     g_layers.unshift( layer );
     console.log(index);
     if (index)
-        array_move(g_layers, g_layers.length-1, index);
+        array_move(g_layers, 0, index);
     
     uiLayerTemplate.style = "";
     let layerUI = uiLayerTemplate.cloneNode(true);
@@ -348,13 +357,15 @@ function createLayer(index, name, pushUndo=false)
     uiLayerTemplate.style.display = "none";
 
     layer.uiElement = layerUI; 
+    layer.uiElement.querySelector(".layer-img").appendChild( layer.canvas );
 
     if (pushUndo)
     {
         const event = {
             type: "LAYER_ADD",
             layer: layer,
-            index: g_layers.indexOf( layer ),
+            id: layer.id,
+            layerIndex: g_layers.indexOf( layer ),
             // new layers are always blank so no need to store image state
         };
 
@@ -376,13 +387,16 @@ function createLayer(index, name, pushUndo=false)
     };
     //layerUI.querySelector(".layer-img").appendChild( layer.canvas );
     
-    uiLayerList.appendChild(layerUI);
+    uiLayerList.insertBefore(layerUI, uiLayerList.children[1]);
     if (index &&
         index < g_layers.length-1 &&
         index >= 0)
     {
-        uiLayerList.insertBefore( layerUI, uiLayerList.children[index+1] );
+        // adding one due to the 
+        uiLayerList.insertBefore( layerUI, uiLayerList.children[index+2] );
     }
+
+    setActiveLayer( 0 );
     
     return layer;
 }
@@ -412,6 +426,7 @@ function removeLayer(layer, pushUndo=false)
         const event = {
             type: "LAYER_REMOVE",
             layer: g_currentLayer,
+            id: g_currentLayer.id,
             layerIndex: g_layers.indexOf( g_currentLayer ),
             data: Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
         };
@@ -419,12 +434,15 @@ function removeLayer(layer, pushUndo=false)
         pushUndoHistory(event);
     }
     
-    uiLayerList.removeChild(layer.uiElement);
+    let index = g_layers.indexOf(layer);
+    console.log(layer.uiElement);
+    if (layer.uiElement.parentNode == uiLayerList)
+        uiLayerList.removeChild(layer.uiElement);
     Graphics.deleteRenderTarget(layer.id);
-    g_layers.splice( g_layers.indexOf(layer), 1 );
+    g_layers.splice( index, 1 );
     if (layer == g_currentLayer)
     {
-        setActiveLayer(0);
+        setActiveLayer(index);
     }
     drawBackbuffer();
 }
@@ -489,7 +507,7 @@ var bucketAnimation = {
 }
 var g_undoHistory = [];
 var g_undoMax = 128;
-var g_undoPosition = -1;
+var g_undoPosition = 0;
 var g_keyStates = new Map();
 var g_tools = [
     {
@@ -776,15 +794,7 @@ Object.keys(g_actionKeys).forEach(action => {
 
     Graphics.setRenderTarget("backbuffer");
     Graphics.loadTexture( tempCanvas, "tempCanvas" );
-        
-    // FIXME: readpixels
-    /*
-    g_undoHistory.push( {
-        layer: g_currentLayer, 
-        data: g_layerctx.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
-    } );
-    */
-
+    
     g_isLoaded = true;
     mainDraw();
     drawBackbuffer();
@@ -891,73 +901,87 @@ function swapColors()
     setColor(1, tmp);
 }
 
+function dbg_logUndoHistory()
+{
+    console.clear();
+    for( var i = g_undoHistory.length-1; i >= 0; i--)
+    {
+        let undoValue = g_undoHistory[i];
+        console.log(`${i == g_undoHistory.length-1-g_undoPosition ? "->\t":"\t"} ${i}: ${ undoValue.type }; ID = ${undoValue.id}`);
+    }
+    console.log("----------------------");
+}
+
+// UNDO LOGIC:
+// the undo history is stored as a queue system (first in last out) containing objects like so:
+// { type: X, ... }
+// the undo pointer starts at 0 (last element) and moves backwards from there. 1 is the 2nd from last, etc
+// undo acts on the current pointed value, while redo acts on the previous.
+// any layer-related operations need to store the layer being acted on's ID as to not lose
+// its reference when undo/redo creates or destroys that layer.
+// (U/R will destroy or recreate layers as needed, and iterate through all undo entries to update that ID)
+
+
 function undo()
 {
-    console.log(g_undoPosition);
+    dbg_logUndoHistory();
     // bounds check
-    if (g_undoHistory.length == 0 || g_undoPosition > g_undoHistory.length-1)
-        return;
-
-    // choose to apply state based on current history value or previous.
-    // 'at current' is the state you're in when you've redone so many times you're at
-    // the front of the list.
-    // in this state, you want to not calculate the init value and instead use the normal 
-    // "one next to this one" undovalue.
-    // we don't want to redo operations, so this is a special edgecase where the pointer is 'OOB'.
-    // as a workaround, we pass a dummy init value
-    let atCurrent = g_undoPosition == -1;
-
-    let initState = atCurrent ? {type: "NULL"} : g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
-    let initFlag = false;
-    initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
-
-    // we skip an extra space if we're at the end of the queue. 
-    // otherwise, an extra undo step is needed to get to the previous state
-    // todo: look further into this, leaving alone as this breaks "check on this step" undo ops
-    g_undoPosition += !initFlag ? 1 : 0;
-
-    let undoValue;
-    if (g_undoPosition <= g_undoHistory.length-1)
+    if (g_undoHistory.length == 0 || g_undoPosition == g_undoHistory.length)
     {
-        console.log(g_undoPosition);
-        undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
-        console.log(undoValue);
-    }    
-    else
-        undoValue = initState;
+        console.log("undo bounds break")
+        return;
+    }
+    let undoValue = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
 
-    // undo type is the event that was logged. the state to go back to
-    // when you log an undo event, the thing logged is the Change that was made at that point in time.
-    // undoing will remove that change
-    
-    // let's say you have a list like this
-    // you draw a line, add a layer, switch to that layer and draw on that one too
-    // your history will look like this:
-    // DRAW -> LAYER_ADD -> DRAW (empty) -> DRAW
-    // line -> remove L  -> blank canvas -> line 2
-    
+    displayToast("undo! " + undoValue.type);
+
     switch(undoValue.type)
     {
         case "DRAW":
             setActiveLayer( undoValue.layer );
-            Graphics.setRenderTarget( g_currentLayer.id );
+            Graphics.setRenderTarget( undoValue.id );
+            // find first drawing back from this value
+            for(var i = g_undoPosition+1; i < g_undoHistory.length; i++)
+            {
+                let entry = g_undoHistory[g_undoHistory.length - 1 - i];
+                if (entry.id == undoValue.id && entry.type == "DRAW")
+                {
+                    undoValue = entry;
+                    break;
+                }
+            }
             Graphics.putImageData(undoValue.data, 0, 0);
             break;
         
         case "LAYER_ADD":
+            console.log("UNDO LAYER ADD: LAYER=");
+            console.log(undoValue.layer);
             // remove the layer that was just added and go to the last selected layer
             removeLayer( undoValue.layer );
+
             break;
         
         case "LAYER_REMOVE":
             // add the layer that was removed in this event and switch to it
             let layer = createLayer( undoValue.layerIndex, undoValue.layer.name );
+
+            g_undoHistory.forEach(entry => {
+                if (entry.id == undoValue.id)
+                {
+                    console.log( `\tid change: ${entry.id} -> ${layer.id}` );
+                    entry.id = layer.id;
+                    entry.layer = layer;
+                    entry.layerIndex = g_layers.indexOf( layer );
+                }
+            });
+
             setActiveLayer( undoValue.layerIndex );
             Graphics.setRenderTarget( layer.id );
             Graphics.putImageData(undoValue.data, 0, 0);
 
             // rebuild layer refs
             undoValue.layer = layer;
+            undoValue.id = layer.id;
             undoValue.layerIndex = g_layers.indexOf( layer );
 
             break;
@@ -967,34 +991,40 @@ function undo()
             break;
     }
     
-    g_undoPosition += initFlag ? 1 : 0;
+    g_undoPosition += 1 ;
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
     drawBackbuffer();
     mainDraw();
+
+    dbg_logUndoHistory();
 }
 
 function redo()
 {
-    console.log(g_undoPosition);
+    dbg_logUndoHistory();
     // bounds check
-    if (g_undoHistory.length == 0 || g_undoPosition < 0)
+    if (g_undoHistory.length == 0 || g_undoPosition == 0)
         return;
 
-    let atBeginning = g_undoPosition == g_undoHistory.length;
-
-    let initState = atBeginning ? {type: "NULL"} : g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
+    let initState = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
     let initFlag = false;
-    initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
+    //initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
+
+    if (initFlag)
+    {
+        console.log(`redo: processing ${initState.type} op. undopos = ${g_undoPosition}`);
+    }
     
     g_undoPosition -= !initFlag ? 1 : 0;
 
-    let undoValue;
-    if (g_undoPosition >= 0)
-        undoValue = g_undoHistory[ g_undoHistory.length - 1 - g_undoPosition ];
-    else
-        undoValue = initState;
+    let undoValue = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
+    console.log(`redo: processing ${undoValue.type} op. undopos = ${g_undoPosition}`);
+
+    displayToast("redo! " + undoValue.type);
+
+    let s = "";
 
     switch(undoValue.type)
     {
@@ -1013,8 +1043,21 @@ function redo()
             // readd the layer. no need to recreate data as new layers are blank
             let layer = createLayer( undoValue.layerIndex, undoValue.layer.name );
             setActiveLayer( undoValue.layerIndex );
+            
+
+            g_undoHistory.forEach((entry, index) => {
+                s += `\nidx:${index}; id:${entry.id}`;
+                if (entry.id == undoValue.id && index != g_undoHistory.length-1-g_undoPosition)
+                {
+                    s += `\n\tid change: ${entry.id} -> ${layer.id}`;
+                    entry.id = layer.id;
+                    entry.layer = layer;
+                    entry.layerIndex = g_layers.indexOf( layer );
+                }
+            });
 
             undoValue.layer = layer;
+            undoValue.id = layer.id;
             undoValue.layerIndex = g_layers.indexOf( layer );
             break;
         
@@ -1029,6 +1072,9 @@ function redo()
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
     drawBackbuffer();
     mainDraw();
+
+    dbg_logUndoHistory();
+    console.log(s);
 }
 
 function pushUndoHistory(event)
@@ -1039,7 +1085,7 @@ function pushUndoHistory(event)
         {
             g_undoHistory.pop();
         }
-        g_undoPosition = -1;
+        g_undoPosition = 0;
     }
 
     if (g_undoHistory.length >= g_undoMax)
@@ -1052,13 +1098,14 @@ function pushUndoHistory(event)
     {
         event = {
             type: "DRAW",
-            layer: g_currentLayer, 
+            layer: g_currentLayer,
+            id: g_currentLayer.id,
             data: Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height)
         };
     }
     g_undoHistory.push(event);
     
-    console.log(g_undoHistory);
+    dbg_logUndoHistory();
 }
 
 function drawLine(start,end,brushSize,spacing)
