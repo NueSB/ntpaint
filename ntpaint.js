@@ -701,12 +701,14 @@ Object.keys(g_actionKeys).forEach(action => {
         g_keyStates.set(action.key, {state: true, lastState: false, downTimestamp: Date.now(), upTimestamp: 0});
 })
 
+let debug = false;
+
 {
     let debugcanvas = document.createElement("canvas");
     debugcanvas.height = canvasHeight;
     debugcanvas.width = canvasWidth;
     var ctx_dbg = debugcanvas.getContext("2d");
-    let debug = false;
+
 
 
     let icon = document.createElement("img");
@@ -937,7 +939,8 @@ function dbg_logUndoHistory()
 
 function undo()
 {
-    dbg_logUndoHistory();
+    if (debug) 
+        dbg_logUndoHistory();
     // bounds check
     if (g_undoHistory.length == 0 || g_undoPosition == g_undoHistory.length)
     {
@@ -1024,12 +1027,14 @@ function undo()
     drawBackbuffer();
     mainDraw();
 
-    dbg_logUndoHistory();
+    if (debug) 
+        dbg_logUndoHistory();
 }
 
 function redo()
 {
-    dbg_logUndoHistory();
+    if (debug) 
+        dbg_logUndoHistory();
     // bounds check
     if (g_undoHistory.length == 0 || g_undoPosition == 0)
         return;
@@ -1106,8 +1111,11 @@ function redo()
     drawBackbuffer();
     mainDraw();
 
-    dbg_logUndoHistory();
-    console.log(s);
+    if (debug)
+    {
+        dbg_logUndoHistory();
+        console.log(s);
+    }
 }
 
 function pushUndoHistory(event)
@@ -1137,21 +1145,25 @@ function pushUndoHistory(event)
         };
     }
     g_undoHistory.push(event);
-    
-    dbg_logUndoHistory();
+
+    if (debug) 
+        dbg_logUndoHistory();
 }
 
 function drawLine(start,end,brushSize,spacing)
 {
-    spacing  = 1/g_BrushSize * g_brushSpacing;
     let dist = distance( start, end );
+    console.log(dist);
+//    if (!spacing)
+        spacing  = 1000;
     let step = Vec2( end.x - start.x, end.y - start.y )
                             .normalize()
                             .scale( spacing );
     let pos = Vec2(start.x, start.y);
     
     // stamp every N units along line
-    let brushDensity = 4;
+    // 0-255
+    let brushDensity = 255;
     Graphics.setRenderTarget( g_currentLayer.id );
 
 
@@ -1176,15 +1188,18 @@ function drawLine(start,end,brushSize,spacing)
 
     gl.enable(gl.BLEND);
     
-    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-
+   
+    gl.blendFuncSeparate(gl.SRC_COLOR, gl.DST_COLOR, gl.ONE, gl.ONE);
     Graphics.setRenderTarget("temp");
     Graphics.clearRect(0,0,canvasWidth, canvasHeight);
     Graphics.drawInstanceRects();
 
     // brush opacity, CSP-style
-    Graphics.globalAlpha = 0.5;
+    Graphics.globalAlpha = 1.0;
     Graphics.setRenderTarget( g_currentLayer.id );
+
+
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
     if (g_currentTool == 3)
         gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
     Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, canvasHeight, canvasWidth, -canvasHeight);
