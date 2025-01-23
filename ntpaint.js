@@ -685,7 +685,7 @@ var g_actionKeys = {
 }
 var g_drawQueue = [];
 var g_drawBlank = false; // draw "blanking period"; space between frames
-var g_brushSpacing = 1;
+var g_brushSpacing = 2;
 var g_isLoaded = false;
 var g_isDragging = false;
 var g_charAnimation = undefined;
@@ -756,6 +756,9 @@ Object.keys(g_actionKeys).forEach(action => {
     
     Graphics.setup( gl );
     
+    // misc texture. use for many things! primarily line drawing
+    Graphics.createRenderTarget( "temp", canvasWidth, canvasHeight );
+
     rescaleViewCanvas();
     
     Graphics.createRenderTarget("backbuffer", canvasWidth, canvasHeight);
@@ -1148,17 +1151,7 @@ function drawLine(start,end,brushSize,spacing)
     let pos = Vec2(start.x, start.y);
     
     // stamp every N units along line
-    //ctx_b.globalAlpha = 0.01;//g_tools[g_currentTool].opacity;
-    
-    /*
-    if (g_currentTool == 3)
-        g_layerctx.globalCompositeOperation = "destination-out";
-    else
-        g_layerctx.globalCompositeOperation = "source-over";
-    */
-
-    //g_layerctx.globalCompositeOperation = "source-over";
-
+    let brushDensity = 4;
     Graphics.setRenderTarget( g_currentLayer.id );
 
 
@@ -1169,7 +1162,12 @@ function drawLine(start,end,brushSize,spacing)
             Math.floor(pos.y - brushSize/2), 
             brushSize, 
             brushSize,
-            g_currentColor
+            new Color(
+                g_currentColor.r,
+                g_currentColor.g,
+                g_currentColor.b,
+                brushDensity
+            )
         );
         
         pos.x += step.x;
@@ -1177,10 +1175,20 @@ function drawLine(start,end,brushSize,spacing)
     }
 
     gl.enable(gl.BLEND);
-    gl.blendEquation( g_currentTool == 3 ? gl.FUNC_REVERSE_SUBTRACT  : gl.FUNC_ADD); 
-    gl.blendFunc( gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA );
+    
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
 
+    Graphics.setRenderTarget("temp");
+    Graphics.clearRect(0,0,canvasWidth, canvasHeight);
     Graphics.drawInstanceRects();
+
+    // brush opacity, CSP-style
+    Graphics.globalAlpha = 0.5;
+    Graphics.setRenderTarget( g_currentLayer.id );
+    if (g_currentTool == 3)
+        gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
+    Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, canvasHeight, canvasWidth, -canvasHeight);
+    Graphics.globalAlpha = 1.0;
 
     gl.blendEquation( gl.FUNC_ADD ); 
     Graphics.setRenderTarget( null );
@@ -1196,7 +1204,7 @@ function drawLine(start,end,brushSize,spacing)
     region.h = Math.floor(region.h) + brushSize;
 
     drawBackbuffer();
-
+    
     /*
     if (debug)
         ctx_b.strokeRect(region.x, region.y, region.w, region.h);
@@ -1477,10 +1485,6 @@ function drawStart(e)
 
         default:
             drawing = true;
-            if (!g_currentLayer.isDirty)
-            {
-
-            }
             drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         break;
     }
