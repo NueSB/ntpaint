@@ -1319,9 +1319,9 @@ function FFAnimation()
                     
                     bucketAnimation.filledPixels[point.x+point.y*g_currentLayer.width] = 1;
 
-                    bucketAnimation.data[ pixel ] = bucketAnimation.replacementColor.r;
-                    bucketAnimation.data[pixel+1] = bucketAnimation.replacementColor.g;
-                    bucketAnimation.data[pixel+2] = bucketAnimation.replacementColor.b;
+                    bucketAnimation.data[ pixel ] = bucketAnimation.replacementColor.r * 255;
+                    bucketAnimation.data[pixel+1] = bucketAnimation.replacementColor.g * 255;
+                    bucketAnimation.data[pixel+2] = bucketAnimation.replacementColor.b * 255;
                     bucketAnimation.data[pixel+3] = 255;
         
                     var j = bucketAnimation.ops.length;
