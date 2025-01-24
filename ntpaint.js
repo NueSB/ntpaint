@@ -194,6 +194,9 @@ function main()
 
     g_drawQueue = [];
     g_drawBlank = true;
+
+
+
     requestAnimationFrame(main);
 }
 
@@ -210,7 +213,7 @@ function drawBackbuffer( region )
         Graphics.save();
         Graphics.translate(0, canvasHeight);
         Graphics.scale(1, -1);
-        Graphics.drawColor = new Color("#DDDDDD");
+        Graphics.drawColor = new Color("#111111");
         Graphics.fillRect(region.x, region.y, region.w, region.h);
         //Graphics.clearRect(region.x, region.y, region.w, region.h);
 
@@ -490,9 +493,12 @@ function isCanvasBlank(renderTarget)
 var g_viewTransform = Vec2(0,0);
 var g_viewScale = 1.0;
 var g_BrushSize = 3;
-var g_BrushSizePrev = 3;
+var g_currentLine = {
+    currentDist: 0,
+    
+}
 var g_MainColor = new Color(0, 0, 0);
-var g_SubColor = new Color(255, 255, 255);
+var g_SubColor = new Color(1, 1, 1);
 var g_currentColor = g_MainColor;
 var g_currentTool = 0;
 var bucketAnimation = {
@@ -1153,9 +1159,7 @@ function pushUndoHistory(event)
 function drawLine(start,end,brushSize,spacing)
 {
     let dist = distance( start, end );
-    console.log(dist);
-//    if (!spacing)
-        spacing  = 1000;
+    spacing = 1;
     let step = Vec2( end.x - start.x, end.y - start.y )
                             .normalize()
                             .scale( spacing );
@@ -1163,12 +1167,13 @@ function drawLine(start,end,brushSize,spacing)
     
     // stamp every N units along line
     // 0-255
-    let brushDensity = 255;
+    let brushDensity = 1;
     Graphics.setRenderTarget( g_currentLayer.id );
 
 
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
+        //add to points stack
         Graphics.pushInstanceData( 
             Math.floor(pos.x - brushSize / 2), 
             Math.floor(pos.y - brushSize/2), 
@@ -1189,7 +1194,7 @@ function drawLine(start,end,brushSize,spacing)
     gl.enable(gl.BLEND);
     
    
-    gl.blendFuncSeparate(gl.SRC_COLOR, gl.DST_COLOR, gl.ONE, gl.ONE);
+    gl.blendFuncSeparate(gl.SRC_COLOR, gl.ZERO, gl.ONE, gl.ONE);
     Graphics.setRenderTarget("temp");
     Graphics.clearRect(0,0,canvasWidth, canvasHeight);
     Graphics.drawInstanceRects();
@@ -1390,10 +1395,10 @@ function eyedrop(x,y, mouseIndex = 0)
     let data = Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height).data;
     console.log(data);
     let srcColor = new Color(
-        data[ pixel ],
-        data[ pixel + 1 ],
-        data[ pixel + 2 ],
-        255
+        data[ pixel ]/255,
+        data[ pixel + 1 ]/255,
+        data[ pixel + 2 ]/255,
+        1
     );
 
     let index =  [ 0, 0, 1 ][ mouseIndex % 3 ];
