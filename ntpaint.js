@@ -57,6 +57,15 @@ var mainPicker = document.createElement( "div" );
 
 var colorPicker = new Picker("#colorpicker");
 
+const TOOL = {
+    PENCIL: 0,
+    BUCKET: 1,
+    EYEDROPPER: 2,
+    ERASER: 3,
+    BRUSH: 4,
+    HAND: 5
+};
+
 class Layer {
     name = "X";
     width = 0;
@@ -213,7 +222,7 @@ function drawBackbuffer( region )
         Graphics.save();
         Graphics.translate(0, canvasHeight);
         Graphics.scale(1, -1);
-        Graphics.drawColor = new Color("#111111");
+        Graphics.drawColor = new Color("#AAAAAA");
         Graphics.fillRect(region.x, region.y, region.w, region.h);
         //Graphics.clearRect(region.x, region.y, region.w, region.h);
 
@@ -300,13 +309,7 @@ function mainDraw(customClear)
     Graphics.lineRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );
     switch(g_currentTool)
     {
-        case 0:
-            break;
-        case 1:
-            break;
-        case 2:
-            break;
-        case 3:
+        default:
             break;
     }
     
@@ -327,7 +330,7 @@ function setBrushSize( i )
 function setTool(i)
 {
     if (i == -1) 
-        g_currentTool = (g_currentTool == 0 ? 1 : 0);
+        g_currentTool = (g_currentTool == TOOL.PENCIL ? TOOL.BUCKET : TOOL.PENCIL);
     else 
         g_currentTool = i;
 
@@ -548,6 +551,10 @@ var g_tools = [
     {
         name: "hand",
         size: 16,
+    },
+    {
+        name: "transform",
+        size: 32,
     }
 ]
 var g_actionKeys = {
@@ -1191,21 +1198,21 @@ function drawLine(start,end,brushSize,spacing)
         pos.y += step.y;
     }
 
-    gl.enable(gl.BLEND);
+    console.log(g_currentColor);
     
-   
-    gl.blendFuncSeparate(gl.SRC_COLOR, gl.ZERO, gl.ONE, gl.ONE);
+    gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ONE);
     Graphics.setRenderTarget("temp");
     Graphics.clearRect(0,0,canvasWidth, canvasHeight);
     Graphics.drawInstanceRects();
 
     // brush opacity, CSP-style
     Graphics.globalAlpha = 1.0;
+    gl.enable(gl.BLEND);
     Graphics.setRenderTarget( g_currentLayer.id );
 
 
     gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-    if (g_currentTool == 3)
+    if (g_currentTool == TOOL.ERASER)
         gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
     Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, canvasHeight, canvasWidth, -canvasHeight);
     Graphics.globalAlpha = 1.0;
@@ -1415,7 +1422,7 @@ function drawStart(e)
     let x = lastCoords.x, y = lastCoords.y, mouseIndex = 0;
     let pos = Vec2(x,y)
 
-    if (g_currentTool == 3)
+    if (g_currentTool == TOOL.ERASER)
     {
         g_currentColor = g_SubColor;
     }
@@ -1442,7 +1449,7 @@ function drawStart(e)
             {
 
                 case 0:
-                    g_currentColor = g_currentTool != 3 ? g_MainColor : g_SubColor;
+                    g_currentColor = g_currentTool != TOOL.ERASER ? g_MainColor : g_SubColor;
                 break;
                 
                 case 1:
@@ -1450,16 +1457,16 @@ function drawStart(e)
                 return;
 
                 case 2:
-                    g_currentColor = g_currentTool != 3 ? g_SubColor : g_MainColor;
+                    g_currentColor = g_currentTool != TOOL.ERASER ? g_SubColor : g_MainColor;
                 break;
 
                 default:
-                    g_currentColor = g_currentTool != 3 ? g_MainColor : g_SubColor;
+                    g_currentColor = g_currentTool != TOOL.ERASER ? g_MainColor : g_SubColor;
                 break;
             }
             mouseIndex = e.button;
         } 
-        else g_currentColor = g_currentTool == 3 ? g_SubColor : g_MainColor;
+        else g_currentColor = g_currentTool == TOOL.ERASER ? g_SubColor : g_MainColor;
 
         
         if (e.altKey)
@@ -1484,25 +1491,23 @@ function drawStart(e)
 
     switch (g_currentTool)
     {
-        case 1:
+        case TOOL.BUCKET:
             executeFloodFill(pos.x, pos.y, g_currentColor);
         break;
         
-        case 2:
+        case TOOL.EYEDROPPER:
             eyedrop(pos.x,pos.y, mouseIndex);
         break;
 
-        case 4:
-        if (e && e.pressure)
-        {
-            // smoothing; could use more samples
-            g_BrushSize = 1 + Math.floor(
-                (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
-            );
-        }
-        case 3:
-            //g_currentLayer.globalCompositeOperation = "destination-out";
-
+        case TOOL.BRUSH:
+            if (e && e.pressure)
+            {
+                // smoothing; could use more samples
+                g_BrushSize = 1 + Math.floor(
+                    (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
+                );
+            }
+            
         default:
             drawing = true;
             drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
@@ -1550,7 +1555,7 @@ function drawMove(e)
         
         setCharacterIcon("nit_think" + index);
 
-        if (g_currentTool == 4  && e && e.pressure)
+        if (g_currentTool == TOOL.BRUSH  && e && e.pressure)
         {
             g_BrushSize = 1 + Math.floor(
                 (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
