@@ -1571,6 +1571,17 @@ function drawStart(e)
             pos.x, pos.y, 1, 1
         ))
         {
+            if (transform.copiedTexture)
+            {
+                // paste image on click-off
+                Graphics.setRenderTarget( g_currentLayer.id );
+                let region = rect2box(transform.startPoint, transform.endPoint);
+                Graphics.drawImage( "temp-transform", 0, 0, region.w, region.h,
+                    region.x, region.y, region.w, region.h, 0, true );
+                pushUndoHistory();
+                drawBackbuffer();
+            }
+
             transform.startPoint = pos;
             transform.drawing = true;
             transform.copiedTexture = false;
@@ -1743,12 +1754,6 @@ function drawEnd(e)
     {
         transform.moving = false; 
         // apply transformation
-        Graphics.setRenderTarget( g_currentLayer.id );
-        let region = rect2box(transform.startPoint, transform.endPoint);
-        Graphics.drawImage( "temp-transform", 0, 0, region.w, region.h,
-            region.x, region.y, region.w, region.h, 0, true );
-        pushUndoHistory();
-        drawBackbuffer();
     }
     
     /*
