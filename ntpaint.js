@@ -1476,6 +1476,7 @@ function eyedrop(x,y, mouseIndex = 0)
 
 function drawStart(e)
 {
+    console.log("start")
     g_isDragging = false;
     let x = lastCoords.x, y = lastCoords.y, mouseIndex = 0;
     let pos = Vec2(x,y)
@@ -1618,7 +1619,7 @@ function drawStart(e)
         
         default:
             drawing = true;
-            drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
+            drawLine(pos, pos, g_BrushSize, g_brushSpacing);
         break;
     }
 
@@ -1627,6 +1628,7 @@ function drawStart(e)
 
 function drawMove(e)
 {
+    console.log("move")
     e.preventDefault();
 
     let x = e.clientX - canvas.offsetLeft;
@@ -1697,6 +1699,7 @@ function drawMove(e)
 
 function drawEnd(e)
 {
+    console.log("end")
     let x = lastCoords.x, y = lastCoords.y;
 
     if (e)
@@ -1816,7 +1819,7 @@ function exportCopy(save)
 }
 /*
 canvas.addEventListener("touchstart", e => { drawStart(e); })
-canvas.addEventListener("touchmove", e => { drawMove(e); });
+window.addEventListener("touchmove", e => { drawMove(e); });
 window.addEventListener("touchend", e => { drawEnd(e); });
 canvas.addEventListener("touchcancel", e => drawEnd(e))
 canvas.addEventListener("mousedown", e => drawStart(e));        

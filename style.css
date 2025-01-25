@@ -2,6 +2,7 @@
 .canvas-container {
     width: 100%;
     height: 100%;
+    touch-action: none;
 }
 
 *
@@ -69,6 +70,7 @@ body {
 
 .overlaychar-container {
     pointer-events:none;
+    touch-action: none;
     display: flex;
     justify-content: center;
     position: relative;
@@ -98,6 +100,7 @@ body {
 
 #colorpicker {
     pointer-events: none;
+    touch-action: none;
     position: fixed;
     right: 1.5%;
     top: 1%;
@@ -111,6 +114,7 @@ body {
 
 #colorpicker canvas { 
     pointer-events: auto;
+    touch-action: none;
     box-shadow: 6px 6px rgb(0 0 0 / 20%);
     grid-area: 1 / 1 / 2 / 4;
     border: 2px solid black;
@@ -229,6 +233,7 @@ body {
     opacity: 0%;
     animation: toast 2s forwards;
     pointer-events: none;
+    touch-action: none;
 }
 
 @keyframes charbob {
