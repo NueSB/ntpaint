@@ -63,7 +63,8 @@ const TOOL = {
     EYEDROPPER: 2,
     ERASER: 3,
     BRUSH: 4,
-    HAND: 5
+    HAND: 5,
+    TRANSFORM: 6
 };
 
 class Layer {
@@ -107,12 +108,12 @@ class Layer {
 
 function clamp(x,min,max)
 {
-    return Math.max( Math.min(x, max), min);
+    return Math.min(Math.max(x, min), max);
 }
 
 function clamp01(x)
 {
-    return Math.max( Math.min(x, 1), 0);
+    return Math.min(Math.max(x, 0), 1);
 }
 
 function distance(a,b)
@@ -307,12 +308,32 @@ function mainDraw(customClear)
     Graphics.drawColor = Color.red;
     let size = g_tools[g_currentTool].size;
     Graphics.lineRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );
-    switch(g_currentTool)
+    switch(g_currentTool) // cursors, whenever that happened
     {
         default:
             break;
     }
-    
+
+    Graphics.drawColor = Color.green;
+
+    let transform = g_tools[TOOL.TRANSFORM];
+    let transformRegion = rect2box(transform.startPoint, 
+        transform.endPoint,
+    );
+
+    if (transformRegion.w > 1 || transformRegion.h > 1)
+    {
+        Graphics.lineRect( transformRegion.x, transformRegion.y, transformRegion.w, transformRegion.h );
+
+        if (transform.copiedTexture)
+        {
+            Graphics.drawImage( "temp-transform", 0, 0, transformRegion.w, transformRegion.h,
+                transformRegion.x, transformRegion.y, transformRegion.w, transformRegion.h, 0, true );
+        }
+
+        
+    }
+
     Graphics.scale( 1/g_viewScale, 1/g_viewScale );
     Graphics.translate(-g_viewTransform.x, -g_viewTransform.y);
 }
@@ -555,6 +576,10 @@ var g_tools = [
     {
         name: "transform",
         size: 32,
+        startPoint: Vec2(0,0),
+        endPoint: Vec2(0,0),
+        drawing: false,
+        copiedTexture: false,
     }
 ]
 var g_actionKeys = {
@@ -773,17 +798,16 @@ let debug = false;
     
     // misc texture. use for many things! primarily line drawing
     Graphics.createRenderTarget( "temp", canvasWidth, canvasHeight );
+    Graphics.textures["temp-transform"] = {
+        width: 2,
+        height: 2,
+        texture: Graphics.createGLTexture(2,2)
+    };
 
     rescaleViewCanvas();
     
     Graphics.createRenderTarget("backbuffer", canvasWidth, canvasHeight);
 
-    setColor(0, Color.black);
-    setColor(1, Color.white);
-    setTool(0);
-
-    main();
-    displayToast("loaded!");
     
 
     for (var i = 0; i < 1; i++)
@@ -817,12 +841,21 @@ let debug = false;
     );
 
 
+    
     setActiveLayer( 0 );
 
     Graphics.setRenderTarget("backbuffer");
     Graphics.loadTexture( tempCanvas, "tempCanvas" );
     
+    setColor(0, Color.black);
+    setColor(1, Color.white);
+    setTool(0);
+
+    main();
+    
     g_isLoaded = true;
+    displayToast("loaded!");
+    
     mainDraw();
     drawBackbuffer();
 }
@@ -989,8 +1022,11 @@ function undo()
             break;
         
         case "LAYER_ADD":
-            console.log("UNDO LAYER ADD: LAYER=");
-            console.log(undoValue.layer);
+            if (debug)
+            {
+                console.log("UNDO LAYER ADD: LAYER=");
+                console.log(undoValue.layer);
+            }
             // remove the layer that was just added and go to the last selected layer
             removeLayer( undoValue.layer );
 
@@ -1003,7 +1039,10 @@ function undo()
             g_undoHistory.forEach(entry => {
                 if (entry.id == undoValue.id)
                 {
-                    console.log( `\tid change: ${entry.id} -> ${layer.id}` );
+                    if (debug)
+                    {
+                        console.log( `\tid change: ${entry.id} -> ${layer.id}` );
+                    }
                     entry.id = layer.id;
                     if (entry.layer) entry.layer = layer;
                     if (entry.layerIndex) entry.layerIndex = g_layers.indexOf( layer );
@@ -1052,19 +1091,12 @@ function redo()
     if (g_undoHistory.length == 0 || g_undoPosition == 0)
         return;
 
-    let initState = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
-    let initFlag = false;
-    //initFlag = (initState.type == "LAYER_ADD" || initState.type == "LAYER_REMOVE");
-
-    if (initFlag)
-    {
-        console.log(`redo: processing ${initState.type} op. undopos = ${g_undoPosition}`);
-    }
-    
-    g_undoPosition -= !initFlag ? 1 : 0;
+    g_undoPosition -= 1;
 
     let undoValue = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
-    console.log(`redo: processing ${undoValue.type} op. undopos = ${g_undoPosition}`);
+    
+    if (debug)
+        console.log(`redo: processing ${undoValue.type} op. undopos = ${g_undoPosition}`);
 
     displayToast("redo! " + undoValue.type);
 
@@ -1116,8 +1148,6 @@ function redo()
             console.error("ERROR: invalid undo type " + undoValue.type);
             break;
     }
-
-    g_undoPosition -= initFlag ? 1 : 0; 
 
     setCharacterIcon("nit_blink");
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
@@ -1197,8 +1227,6 @@ function drawLine(start,end,brushSize,spacing)
         pos.x += step.x;
         pos.y += step.y;
     }
-
-    console.log(g_currentColor);
     
     gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ONE);
     Graphics.setRenderTarget("temp");
@@ -1220,15 +1248,7 @@ function drawLine(start,end,brushSize,spacing)
     gl.blendEquation( gl.FUNC_ADD ); 
     Graphics.setRenderTarget( null );
 
-    let region = { x: start.x < end.x ? start.x : end.x,
-                   y: start.y < end.y ? start.y : end.y,
-                   w: Math.abs(start.x - end.x),
-                   h: Math.abs(start.y - end.y) }
-
-    region.x = Math.floor(region.x) - brushSize/2;
-    region.y = Math.floor(region.y) - brushSize/2;
-    region.w = Math.floor(region.w) + brushSize;
-    region.h = Math.floor(region.h) + brushSize;
+    let region = rect2box(start, end, brushSize);
 
     drawBackbuffer();
     
@@ -1240,6 +1260,29 @@ function drawLine(start,end,brushSize,spacing)
 
     //g_layerctx.globalAlpha = 1;
 }
+
+// converts a (start, end) rect to a (x,y,w,h) rect.
+function rect2box(start, end, padding=0)
+{
+    let region = { x: start.x < end.x ? start.x : end.x,
+        y: start.y < end.y ? start.y : end.y,
+        w: Math.abs(start.x - end.x),
+        h: Math.abs(start.y - end.y) }
+
+    region.x = Math.floor(region.x) - padding/2;
+    region.y = Math.floor(region.y) - padding/2;
+    region.w = Math.floor(region.w) + padding;
+    region.h = Math.floor(region.h) + padding;
+
+    return region;
+}
+
+function boxIntersect(x, y, xscl, yscl, dx, dy, dxscl, dyscl)
+{
+  return Math.abs((x + xscl / 2) - (dx + dxscl / 2)) * 2 < (xscl + dxscl) &&
+    Math.abs((y + yscl / 2) - (dy + dyscl / 2)) * 2 < (yscl + dyscl);
+}
+
 
 function setColor(colorIndex, color)
 {
@@ -1400,7 +1443,6 @@ function eyedrop(x,y, mouseIndex = 0)
     let pixel = x*4 + y*g_currentLayer.width*4;
     Graphics.setRenderTarget( g_currentLayer.id ); 
     let data = Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height).data;
-    console.log(data);
     let srcColor = new Color(
         data[ pixel ]/255,
         data[ pixel + 1 ]/255,
@@ -1447,7 +1489,6 @@ function drawStart(e)
         {
             switch (e.button)
             {
-
                 case 0:
                     g_currentColor = g_currentTool != TOOL.ERASER ? g_MainColor : g_SubColor;
                 break;
@@ -1488,7 +1529,6 @@ function drawStart(e)
     
     setCharacterIcon("nit_think" + index);
 
-
     switch (g_currentTool)
     {
         case TOOL.BUCKET:
@@ -1499,6 +1539,44 @@ function drawStart(e)
             eyedrop(pos.x,pos.y, mouseIndex);
         break;
 
+        case TOOL.TRANSFORM:
+            // when you click with the transform tool, you have two options:
+            // move a selection,
+            // or make a new one.
+            // you will make a new one if you click in a region that
+            // does not contain a selection.
+        let transform = g_tools[TOOL.TRANSFORM];
+        let region = rect2box(
+            transform.startPoint, 
+            transform.endPoint
+        );
+
+        if (!boxIntersect(region.x, region.y, region.w, region.h,
+            pos.x, pos.y, 1, 1
+        ))
+        {
+            transform.startPoint = pos;
+            transform.drawing = true;
+            transform.copiedTexture = false;
+        } else
+        {
+            transform.moving = true;
+
+            let region = rect2box(transform.startPoint, transform.endPoint);
+            Graphics.setRenderTarget( g_currentLayer.id );
+            gl.bindTexture(gl.TEXTURE_2D, Graphics.textures["temp-transform"].texture);
+            gl.texImage2D(
+                gl.TEXTURE_2D, 0, gl.RGBA, region.w, region.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null
+            )
+            Graphics.textures["temp-transform"].width = region.w;
+            Graphics.textures["temp-transform"].height = region.h;
+            gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, region.x, canvasHeight-region.h-region.y, region.w, region.h);
+            Graphics.clearRect(region.x, canvasHeight-region.h-region.y, region.w, region.h);
+            drawBackbuffer();
+            transform.copiedTexture = true;
+        }
+        break;
+
         case TOOL.BRUSH:
             if (e && e.pressure)
             {
@@ -1507,7 +1585,7 @@ function drawStart(e)
                     (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
                 );
             }
-            
+        
         default:
             drawing = true;
             drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
@@ -1564,7 +1642,20 @@ function drawMove(e)
         
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
     }
-    
+
+    let transform = g_tools[TOOL.TRANSFORM];
+    if (transform.drawing)
+    {
+        transform.endPoint = pos;
+    }
+
+    if (transform.moving)
+    {
+        let delta = pos.sub(lastCoords);
+        transform.startPoint = transform.startPoint.add( delta );
+        transform.endPoint = transform.endPoint.add( delta );
+    }
+
     mainDraw( { x: lastCoords.x, 
         y: lastCoords.y,
         w: Math.abs(lastCoords.x - x), 
@@ -1616,6 +1707,35 @@ function drawEnd(e)
     if (!bucketAnimation.active)
         setCharacterIcon("nit1");
 
+    let transform = g_tools[TOOL.TRANSFORM];
+    if (transform.drawing)
+    {
+        transform.endPoint = pos;
+        
+
+        transform.startPoint.x = clamp(transform.startPoint.x, 0, canvasWidth);
+        transform.startPoint.y = clamp(transform.startPoint.y, 0, canvasHeight);
+        transform.endPoint.x = clamp(transform.endPoint.x, 0, canvasWidth);
+        transform.endPoint.y = clamp(transform.endPoint.y, 0, canvasHeight);
+
+        transform.drawing = false;
+    }
+    else if (transform.moving)
+    {
+        transform.moving = false; 
+        // apply transformation
+        Graphics.setRenderTarget( g_currentLayer.id );
+        let region = rect2box(transform.startPoint, transform.endPoint);
+        Graphics.drawImage( "temp-transform", 0, 0, region.w, region.h,
+            region.x, region.y, region.w, region.h, 0, true );
+        pushUndoHistory();
+        drawBackbuffer();
+    }
+    
+    /*
+
+    */
+
     mainDraw( { x: lastCoords.x, 
         y: lastCoords.y,
         w: Math.abs(lastCoords.x - x), 
@@ -1628,7 +1748,6 @@ function exportCopy(save)
     drawBackbuffer();
     Graphics.setRenderTarget( "backbuffer" );
     let data = Graphics.getImageData(0,0,canvasWidth,canvasHeight).data;
-    console.log(data);
     tempCanvas.width = canvasWidth;
     tempCanvas.height = canvasHeight;
 
