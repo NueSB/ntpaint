@@ -941,19 +941,24 @@ async function pasteImage(position)
                 
                 tempCanvas.width = img.width;
                 tempCanvas.height = img.height;
-                Graphics.textures["tempCanvas"].width = img.width;
-                Graphics.textures["tempCanvas"].height = img.height;
+                let region = { x:0,y:0,w:img.width,h:img.height };
+                Graphics.textures["temp-transform"].width = region.w;
+                Graphics.textures["temp-transform"].height = region.h;
+                                
+                // start a transform session
+                tempCtx.scale(1, -1);
+                tempCtx.drawImage(img, 0, 0, img.width, -img.height);
+                tempCtx.scale(1, -1);
                 
-                tempCtx.drawImage(img, 0, 0);
-                
-                gl.bindTexture( gl.TEXTURE_2D, Graphics.textures["tempCanvas"].texture );
-                gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tempCanvas);
-                
-                Graphics.setRenderTarget( g_currentLayer.id );
+                setTool( TOOL.TRANSFORM );
+                let transform = g_tools[TOOL.TRANSFORM];
+                transform.drawing = false;
+                transform.startPoint = Vec2(0,0);
+                transform.endPoint = Vec2( img.width, img.height );
 
-                Graphics.drawImage( "tempCanvas", position.x, position.y);
-                pushUndoHistory();
-                drawBackbuffer();
+                gl.bindTexture(gl.TEXTURE_2D, Graphics.textures["temp-transform"].texture);
+                gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tempCanvas);
+                transform.copiedTexture = true;
             };
             img.src = reader.result;
           };
@@ -1573,18 +1578,21 @@ function drawStart(e)
         {
             transform.moving = true;
 
-            let region = rect2box(transform.startPoint, transform.endPoint);
-            Graphics.setRenderTarget( g_currentLayer.id );
-            gl.bindTexture(gl.TEXTURE_2D, Graphics.textures["temp-transform"].texture);
-            gl.texImage2D(
-                gl.TEXTURE_2D, 0, gl.RGBA, region.w, region.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null
-            )
-            Graphics.textures["temp-transform"].width = region.w;
-            Graphics.textures["temp-transform"].height = region.h;
-            gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, region.x, canvasHeight-region.h-region.y, region.w, region.h);
-            Graphics.clearRect(region.x, canvasHeight-region.h-region.y, region.w, region.h);
-            drawBackbuffer();
-            transform.copiedTexture = true;
+            if (!transform.copiedTexture)
+            {
+                let region = rect2box(transform.startPoint, transform.endPoint);
+                Graphics.setRenderTarget( g_currentLayer.id );
+                gl.bindTexture(gl.TEXTURE_2D, Graphics.textures["temp-transform"].texture);
+                gl.texImage2D(
+                    gl.TEXTURE_2D, 0, gl.RGBA, region.w, region.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null
+                )
+                Graphics.textures["temp-transform"].width = region.w;
+                Graphics.textures["temp-transform"].height = region.h;
+                gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, region.x, canvasHeight-region.h-region.y, region.w, region.h);
+                Graphics.clearRect(region.x, canvasHeight-region.h-region.y, region.w, region.h);
+                drawBackbuffer();
+                transform.copiedTexture = true;
+            }
         }
         break;
 
