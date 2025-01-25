@@ -1820,7 +1820,7 @@ canvas.addEventListener("mouseup", e => { drawEnd(e) });
 */
 
 canvas.addEventListener("pointerdown", e => { drawStart(e) });
-canvas.addEventListener("pointermove", e => { window.requestAnimationFrame(drawMove.bind(this,e)) });
+window.addEventListener("pointermove", e => { window.requestAnimationFrame(drawMove.bind(this,e)) });
 window.addEventListener("pointerup", e => { 
     drawEnd(e); 
     colorPicker.mouseDown = false; 

@@ -97,6 +97,7 @@ body {
 }
 
 #colorpicker {
+    pointer-events: none;
     position: fixed;
     right: 1.5%;
     top: 1%;
@@ -109,6 +110,7 @@ body {
 }
 
 #colorpicker canvas { 
+    pointer-events: auto;
     box-shadow: 6px 6px rgb(0 0 0 / 20%);
     grid-area: 1 / 1 / 2 / 4;
     border: 2px solid black;
