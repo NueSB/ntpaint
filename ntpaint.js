@@ -306,9 +306,14 @@ function mainDraw(customClear)
     */
    
     Graphics.drawColor = Color.red;
-    let size = g_tools[g_currentTool].size;
-    Graphics.lineRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );
-    switch(g_currentTool) // cursors, whenever that happened
+    let size = -1;
+    if (g_tools[g_currentTool].size)
+    {
+        size = g_tools[g_currentTool].size;
+        Graphics.lineRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );    
+    }
+
+    switch(g_currentTool) // cursors, whenever that happens
     {
         default:
             break;
@@ -548,7 +553,6 @@ var g_tools = [
     },
     {
         name: "bkt",
-        size: 1,
         opacity: 1,
     },
     {
@@ -571,11 +575,9 @@ var g_tools = [
     },
     {
         name: "hand",
-        size: 16,
     },
     {
         name: "transform",
-        size: 32,
         startPoint: Vec2(0,0),
         endPoint: Vec2(0,0),
         drawing: false,
@@ -614,7 +616,7 @@ var g_actionKeys = {
         altKey: false,
         func: setTool,
         event: "press",
-        args: [4]
+        args: [TOOL.BRUSH]
     },
     bucket: {
         key: "G",
@@ -623,7 +625,7 @@ var g_actionKeys = {
         altKey: false,
         func: setTool,
         event: "press",
-        args: [1]
+        args: [TOOL.BUCKET]
     },
     eyedropper: {
         key: "K",
@@ -632,7 +634,7 @@ var g_actionKeys = {
         altKey: false,
         func: setTool,
         event: "press",
-        args: [2]
+        args: [TOOL.EYEDROPPER]
     },
     drawAltStart: {
         key: "F",
@@ -701,7 +703,7 @@ var g_actionKeys = {
         altKey: false,
         event: "press",
         func: setTool,
-        args: [3]
+        args: [TOOL.ERASER]
     },
     clear: {
         key: "DELETE",
@@ -712,13 +714,22 @@ var g_actionKeys = {
         func: clearLayer
     },
     pencil: {
-        key: "P",
+        key: "D",
         ctrlKey: false,
         shiftKey: false,
         altKey: false,
         event: "press",
         func: setTool,
-        args: [0]
+        args: [TOOL.PENCIL]
+    },
+    transform: {
+        key: "T",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        event: "press",
+        func: setTool,
+        args: [TOOL.TRANSFORM]
     }
 }
 var g_drawQueue = [];
@@ -1094,7 +1105,7 @@ function redo()
     g_undoPosition -= 1;
 
     let undoValue = g_undoHistory[g_undoHistory.length - 1 - g_undoPosition];
-    
+
     if (debug)
         console.log(`redo: processing ${undoValue.type} op. undopos = ${g_undoPosition}`);
 
