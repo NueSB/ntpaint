@@ -245,7 +245,7 @@ function drawBackbuffer( region )
                     region.x, region.y, region.w, region.h, 
                     region.x, region.y, region.w, region.h );
 
-                if (drawing)
+                if (drawing && g_currentLayer.id == g_layers[i].id)
                 {
                     if (g_currentTool == TOOL.ERASER)
                         gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
