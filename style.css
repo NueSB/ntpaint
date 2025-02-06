@@ -169,6 +169,22 @@ body {
 }
 
 
+.floating-button {
+    background-color: #383838;
+    color: #AAAAAA;
+    border: 1px solid black;
+    padding: 3px;
+    margin: 4px;
+    box-shadow: 6px 6px 0px rgba(0,0,0,0.4);
+}
+
+.brush-toolbar {
+    position: fixed;
+    right: 10%;
+    bottom: 30%;
+    margin: 20px;
+}
+
 .layer {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -176,9 +192,6 @@ body {
     grid-column-gap: 0px;
     grid-row-gap: 0px; 
     margin: 4px;
-    background-color: #383838;
-    border: 1px solid black;
-    box-shadow: 6px 6px 0px rgba(0,0,0,0.4);
 }
 
 .layer-active {
@@ -187,7 +200,7 @@ body {
     color: black;
 }
 
-.layer:hover {
+.floating-button:hover {
     filter:invert();
 }
 

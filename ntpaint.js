@@ -167,6 +167,10 @@ const Vec2 = function(x,y)
       normalize: function()
       {
         var mag = this.magnitude();
+        if (mag == 0)
+        {
+            return Vec2(0,0);
+        }
         return Vec2(this.x / mag, this.y / mag);
       },
       scale: function(i) { return Vec2(this.x * i, this.y * i) },
@@ -233,9 +237,14 @@ function drawBackbuffer( region )
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             // ctx.globalCompositeOperation = LAYER MODE HERE
                 Graphics.globalAlpha = g_layers[i].opacity;
-                Graphics.drawImage( g_layers[i].renderTarget.texture, 
+
+                Graphics.drawImage(  g_layers[i].renderTarget.texture, 
                     region.x, region.y, region.w, region.h, 
                     region.x, region.y, region.w, region.h );
+                if (drawing)
+                {
+                    Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight);
+                }
         }
         Graphics.restore();
     }
@@ -258,6 +267,7 @@ function mainDraw(customClear)
 
     Graphics.updateTextures();
     Graphics.drawColor = new Color("#3A3A3A");
+    // BG (non canvas)
     Graphics.fillRect(0,0,canvas.width, canvas.height);
     
     Graphics.translate(g_viewTransform.x, g_viewTransform.y);
@@ -266,11 +276,7 @@ function mainDraw(customClear)
     let region = {x: 0, y: 0, w: canvas.width, h: canvas.height};
 
     
-    //if (!customClear || customClear.force)
-    {
-        //Graphics.clearRect(0,0, canvas.width, canvas.height);
-    }
-
+    // BG (canvas)
     Graphics.drawColor = new Color("#909999");
     Graphics.fillRect(0, 0, canvasWidth, canvasHeight);
     Graphics.drawColor = Color.white;
@@ -1209,6 +1215,9 @@ function pushUndoHistory(event)
         dbg_logUndoHistory();
 }
 
+let lastPt = null;
+let lastLastPt = null;
+
 function drawLine(start,end,brushSize,spacing)
 {
     let dist = distance( start, end );
@@ -1218,17 +1227,59 @@ function drawLine(start,end,brushSize,spacing)
                             .scale( spacing );
     let pos = Vec2(start.x, start.y);
     
+    // pixel perfect alg; pixels to clear when done drawing
+    let erasurePositions = [];
+
     // stamp every N units along line
-    // 0-255
+    // 0-1
     let brushDensity = 1;
     Graphics.setRenderTarget( g_currentLayer.id );
 
-
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
+        if (brushSize == 1)
+        {
+            let current = Vec2(
+                Math.floor(pos.x - brushSize/2), 
+                Math.floor(pos.y - brushSize/2));
+                
+            if (!lastPt)
+                lastPt = Vec2(current.x, current.y);
+        
+            if (current.x != lastPt.x || current.y != lastPt.y)
+            {
+                if (lastLastPt)
+                {
+                    console.log(lastLastPt.x, lastLastPt.y, "|", lastPt.x, lastPt.y, "|", current.x, current.y);
+                    
+                    if (
+                        (
+                            lastPt.x == current.x
+                            && lastPt.y == lastLastPt.y
+                            && lastPt.x != lastLastPt.x
+                        ) ||
+                        (
+                            lastPt.y == current.y
+                            && lastPt.x == lastLastPt.x
+                            && lastPt.y != lastLastPt.y
+                        )
+                    )
+                    {
+                        erasurePositions.push( [lastPt.x, lastPt.y] );
+
+                        lastPt = Vec2(current.x, current.y);
+                        lastLastPt = Vec2(lastPt.x, lastPt.y);
+
+                    }
+                }
+                lastLastPt = Vec2(lastPt.x, lastPt.y);
+                lastPt = Vec2(current.x, current.y);
+            }
+        }
+
         //add to points stack
         Graphics.pushInstanceData( 
-            Math.floor(pos.x - brushSize / 2), 
+            Math.floor(pos.x - brushSize/2), 
             Math.floor(pos.y - brushSize/2), 
             brushSize, 
             brushSize,
@@ -1242,29 +1293,50 @@ function drawLine(start,end,brushSize,spacing)
         
         pos.x += step.x;
         pos.y += step.y;
+
     }
     
     gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ONE);
     Graphics.setRenderTarget("temp");
-    Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+    //Graphics.clearRect(0,0,canvasWidth, canvasHeight);
     Graphics.drawInstanceRects();
+
+    // the problem: 
+    // drawing directly to the canvas in the drawline method means we cannot make adjustments to the
+    // line before committing it.
+    // the solution:
+    // draw to the temp image, then draw it to screen when DONE drawing (in drawend).
+    // in order for this to show correctly, the drawbackbuffer method will need to be slightly
+    // reworked to draw the temp image if drawing,
+    // and draw the [temp image + current layer, not committing?] in place of the current layer if so.
+
+
+    if (brushSize == 1)
+    {
+        gl.disable(gl.BLEND);
+        for (var i = 0; i < erasurePositions.length; i++)
+        {
+            Graphics.pushInstanceData( 
+                erasurePositions[i][0],
+                erasurePositions[i][1],
+                1, 
+                1,
+                new Color(
+                    0,1,0,0
+                )
+            );
+        }
+        //gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
+        Graphics.drawInstanceRects();
+        gl.enable(gl.BLEND);
+    }
 
     // brush opacity, CSP-style
     Graphics.globalAlpha = 1.0;
-    gl.enable(gl.BLEND);
-    Graphics.setRenderTarget( g_currentLayer.id );
 
-
-    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-    if (g_currentTool == TOOL.ERASER)
-        gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
-    Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, canvasHeight, canvasWidth, -canvasHeight);
-    Graphics.globalAlpha = 1.0;
-
-    gl.blendEquation( gl.FUNC_ADD ); 
-    Graphics.setRenderTarget( null );
 
     let region = rect2box(start, end, brushSize);
+    Graphics.setRenderTarget(null);
 
     drawBackbuffer();
     
@@ -1476,7 +1548,6 @@ function eyedrop(x,y, mouseIndex = 0)
 
 function drawStart(e)
 {
-    console.log("start")
     g_isDragging = false;
     let x = lastCoords.x, y = lastCoords.y, mouseIndex = 0;
     let pos = Vec2(x,y)
@@ -1619,6 +1690,8 @@ function drawStart(e)
         
         default:
             drawing = true;
+            Graphics.setRenderTarget("temp");
+            Graphics.clearRect(0,0,canvasWidth, canvasHeight);
             drawLine(pos, pos, g_BrushSize, g_brushSpacing);
         break;
     }
@@ -1628,7 +1701,6 @@ function drawStart(e)
 
 function drawMove(e)
 {
-    console.log("move")
     e.preventDefault();
 
     let x = e.clientX - canvas.offsetLeft;
@@ -1699,7 +1771,6 @@ function drawMove(e)
 
 function drawEnd(e)
 {
-    console.log("end")
     let x = lastCoords.x, y = lastCoords.y;
 
     if (e)
@@ -1732,6 +1803,17 @@ function drawEnd(e)
 	if (drawing)
     {
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
+        gl.enable(gl.BLEND);
+        Graphics.setRenderTarget( g_currentLayer.id );
+        {
+            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
+            if (g_currentTool == TOOL.ERASER)
+                gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
+            Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, canvasHeight, canvasWidth, -canvasHeight);
+            Graphics.globalAlpha = 1.0;
+            gl.blendEquation( gl.FUNC_ADD ); 
+        }
+        Graphics.setRenderTarget( null );
         pushUndoHistory();
     }
 
@@ -1847,7 +1929,7 @@ uiContainer.addEventListener( "wheel", e=> {
 
     let scale = g_viewScale;
 
-    g_viewScale = Math.max(Math.min( g_viewScale - Math.sign(e.deltaY) * 0.1, 4), 0.01);
+    g_viewScale = Math.max(Math.min( g_viewScale - Math.sign(e.deltaY) * 0.1, 4*4), 0.01);
     //g_viewTransform = g_viewTransform.sub( Vec2( 0, 0 ).scale( g_viewScale) );
     if (scale != g_viewScale)
         lastCoords = lastCoords_raw.sub( g_viewTransform ).scale( 1/g_viewScale );
