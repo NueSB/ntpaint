@@ -236,15 +236,26 @@ function drawBackbuffer( region )
             gl.enable ( gl.BLEND );
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             // ctx.globalCompositeOperation = LAYER MODE HERE
+            Graphics.setRenderTarget("temp-layer");
+            {
+                Graphics.clearRect(0, 0, canvasWidth, canvasHeight);
                 Graphics.globalAlpha = g_layers[i].opacity;
 
                 Graphics.drawImage(  g_layers[i].renderTarget.texture, 
                     region.x, region.y, region.w, region.h, 
                     region.x, region.y, region.w, region.h );
+
                 if (drawing)
                 {
+                    if (g_currentTool == TOOL.ERASER)
+                        gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
                     Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight);
+                    gl.blendEquation(gl.FUNC_ADD);
                 }
+            }
+            
+            Graphics.setRenderTarget("backbuffer");
+            Graphics.drawImage("temp-layer", 0, 0);
         }
         Graphics.restore();
     }
@@ -815,6 +826,7 @@ let debug = false;
     
     // misc texture. use for many things! primarily line drawing
     Graphics.createRenderTarget( "temp", canvasWidth, canvasHeight );
+    Graphics.createRenderTarget( "temp-layer", canvasWidth, canvasHeight );
     Graphics.textures["temp-transform"] = {
         width: 2,
         height: 2,
