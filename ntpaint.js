@@ -39,7 +39,9 @@ var canvas = document.querySelector("#c"),
     uiLayerTemplate = document.querySelector(".layer"),
     uiLayerOpacity = document.querySelector("#opacity-ctrl"),
     uiLayerAdd = document.querySelector("#add-layer"),
-    uiLayerRemove = document.querySelector("#remove-layer");
+    uiLayerRemove = document.querySelector("#remove-layer"),
+    uiBrushProps = document.querySelector("#brush-property-list"),
+    uiBrushPropTemplate = document.querySelector(".brush-property");
 //
     var canvasWidth = 1024;
     var canvasHeight = 1024;
@@ -234,12 +236,16 @@ function drawBackbuffer( region )
         for (var i = g_layers.length-1; i >= 0 ; i--)
         {
             gl.enable ( gl.BLEND );
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
             // ctx.globalCompositeOperation = LAYER MODE HERE
+
+            // draw current layer image to temp layer tex,
+            // then draw current line overtop that if drawing
+            // (eraser needs to erase from that)
+
             Graphics.setRenderTarget("temp-layer");
             {
                 Graphics.clearRect(0, 0, canvasWidth, canvasHeight);
-                Graphics.globalAlpha = g_layers[i].opacity;
 
                 Graphics.drawImage(  g_layers[i].renderTarget.texture, 
                     region.x, region.y, region.w, region.h, 
@@ -247,14 +253,27 @@ function drawBackbuffer( region )
 
                 if (drawing && g_currentLayer.id == g_layers[i].id)
                 {
+                    Graphics.globalAlpha = g_tools[g_currentTool].opacity || 1;
+                    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
                     if (g_currentTool == TOOL.ERASER)
                         gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
                     Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight);
-                    gl.blendEquation(gl.FUNC_ADD);
+                    gl.blendEquation( gl.FUNC_ADD );
+                    /*
+                    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
+                    if (g_currentTool == TOOL.ERASER)
+                        gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
+                    Graphics.globalAlpha = g_tools[g_currentTool].opacity || 1;
+                    Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight);
+                    Graphics.globalAlpha = g_layers[i].opacity;
+                    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
+                    */
                 }
             }
             
             Graphics.setRenderTarget("backbuffer");
+            //Graphics.globalAlpha = g_tools[g_currentTool].opacity || 1;
+            Graphics.globalAlpha = g_layers[i].opacity;
             Graphics.drawImage("temp-layer", 0, 0);
         }
         Graphics.restore();
@@ -262,7 +281,8 @@ function drawBackbuffer( region )
     Graphics.setRenderTarget(null);
 }
 
-// provide a custom region to clear if needed (cursor updates, etc)
+// provide a custom region to clear if needed (cursor updates, etc)*
+// (inactive)
 function mainDraw(customClear)
 {
     // framerate lock
@@ -377,11 +397,30 @@ function setTool(i)
     else 
         g_currentTool = i;
 
+    
+    let tool = g_tools[g_currentTool];
+
     let sprite = "err";
     if (g_currentTool <= 4 && g_currentTool >= 0)
         sprite = ["pencil", "bucket", "eyedropper", "eraser", "brush"][g_currentTool];
+
+    uiBrushProps.textContent = "";
+    if (tool.properties)
+    {
+        for (let j = 0; j < tool.properties.length; j++)
+        {
+            let prop = tool.properties[i];
+            let propElement = uiBrushPropTemplate.cloneNode(true);
+            propElement.style = "";
+            console.log(tool.properties[i]);
+            propElement.querySelector("#propname").innerHTML = prop.displayName;
+            propElement.querySelector("input").addEventListener("input", e=>  { prop.onChange(e)});
+            uiBrushProps.appendChild(propElement);
+        }
+    }
     
     g_BrushSize = g_tools[ g_currentTool ].size;
+
     mainDraw( { x: lastCoords.x - g_BrushSize / 2, 
         y: lastCoords.y - g_BrushSize / 2,
         w: g_BrushSize, 
@@ -566,7 +605,21 @@ var g_tools = [
     {
         name: "pcl",
         size: 16,
-        opacity: 0.2,
+        opacity: 1,
+        properties: [
+            {
+                name: "opacity",
+                displayName: "opacity",
+                start: 0,
+                stop: 100,
+                onChange: function(e)
+                {
+                    this.parent.opacity = e.target.value / this.stop;
+                    console.log(this.parent.opacity);
+                }
+            }
+        ]
+
     },
     {
         name: "bkt",
@@ -775,12 +828,19 @@ let debug = false;
     debugcanvas.width = canvasWidth;
     var ctx_dbg = debugcanvas.getContext("2d");
 
-
-
     let icon = document.createElement("img");
     icon.src = "images/placeholder.png";
     for (let i = 0; i < g_tools.length; i++)
     {
+        // provide a parent property to every brush adjustable property
+        if (g_tools[i].properties)
+        {
+            for(let j = 0; j < g_tools[i].properties.length; j++)
+            {
+                g_tools[i].properties[j].parent = g_tools[i];
+            }
+        }
+
         let button = document.createElement("button");
         button.innerHTML += g_tools[i].name;
         button.appendChild(icon.cloneNode());
@@ -1247,6 +1307,8 @@ function drawLine(start,end,brushSize,spacing)
     let brushDensity = 1;
     Graphics.setRenderTarget( g_currentLayer.id );
 
+    Graphics.globalAlpha = 1;
+
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
         if (brushSize == 1)
@@ -1305,14 +1367,13 @@ function drawLine(start,end,brushSize,spacing)
         
         pos.x += step.x;
         pos.y += step.y;
-
     }
     
-    gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ONE);
+    gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ZERO);
     Graphics.setRenderTarget("temp");
     //Graphics.clearRect(0,0,canvasWidth, canvasHeight);
     Graphics.drawInstanceRects();
-
+    
     // the problem: 
     // drawing directly to the canvas in the drawline method means we cannot make adjustments to the
     // line before committing it.
@@ -1321,7 +1382,6 @@ function drawLine(start,end,brushSize,spacing)
     // in order for this to show correctly, the drawbackbuffer method will need to be slightly
     // reworked to draw the temp image if drawing,
     // and draw the [temp image + current layer, not committing?] in place of the current layer if so.
-
 
     if (brushSize == 1)
     {
@@ -1342,10 +1402,6 @@ function drawLine(start,end,brushSize,spacing)
         Graphics.drawInstanceRects();
         gl.enable(gl.BLEND);
     }
-
-    // brush opacity, CSP-style
-    Graphics.globalAlpha = 1.0;
-
 
     let region = rect2box(start, end, brushSize);
     Graphics.setRenderTarget(null);
@@ -1704,6 +1760,13 @@ function drawStart(e)
             drawing = true;
             Graphics.setRenderTarget("temp");
             Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+            if (e && e.shiftKey)
+            {
+                console.log("line")
+                drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
+                lastCoords = pos;
+                return;
+            }
             drawLine(pos, pos, g_BrushSize, g_brushSpacing);
         break;
     }
@@ -1812,20 +1875,26 @@ function drawEnd(e)
         pos = pos.scale( 1/g_viewScale );
     }
 
+    // apply line to layer when finishing
 	if (drawing)
     {
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         gl.enable(gl.BLEND);
         Graphics.setRenderTarget( g_currentLayer.id );
         {
+            Graphics.globalAlpha = g_tools[g_currentTool].opacity || 1;
             gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
             if (g_currentTool == TOOL.ERASER)
                 gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
             Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, canvasHeight, canvasWidth, -canvasHeight);
+            gl.blendEquation( gl.FUNC_ADD );
             Graphics.globalAlpha = 1.0;
-            gl.blendEquation( gl.FUNC_ADD ); 
         }
+        Graphics.setRenderTarget( "temp" );
+        Graphics.clearRect(0,0,canvasWidth, canvasHeight);
         Graphics.setRenderTarget( null );
+
+        drawBackbuffer();
         pushUndoHistory();
     }
 
@@ -1921,7 +1990,9 @@ canvas.addEventListener("mousemove", e => drawMove(e) );
 canvas.addEventListener("mouseup", e => { drawEnd(e) });
 */
 
-canvas.addEventListener("pointerdown", e => { drawStart(e) });
+canvas.addEventListener("pointerdown", e => { 
+    drawStart(e) 
+});
 window.addEventListener("pointermove", e => { window.requestAnimationFrame(drawMove.bind(this,e)) });
 window.addEventListener("pointerup", e => { 
     drawEnd(e); 
