@@ -443,12 +443,15 @@ function setTool(i)
     {
         for (let j = 0; j < tool.properties.length; j++)
         {
-            let prop = tool.properties[i];
+            let prop = tool.properties[j];
             let propElement = uiBrushPropTemplate.cloneNode(true);
             propElement.style = "";
-            console.log(tool.properties[i]);
             propElement.querySelector("#propname").innerHTML = prop.displayName;
             propElement.querySelector("input").addEventListener("input", e=>  { prop.onChange(e)});
+            // TODO: switch for input types (checkbox, range, etc)
+            propElement.querySelector("input").value = tool[tool.properties[j].name]
+                                                       * (tool.properties[j].stop - tool.properties[j].start) 
+                                                       + tool.properties[j].start;
             uiBrushProps.appendChild(propElement);
         }
     }
@@ -649,7 +652,6 @@ var g_tools = [
                 onChange: function(e)
                 {
                     this.parent.opacity = e.target.value / this.stop;
-                    console.log(this.parent.opacity);
                 }
             }
         ]
@@ -658,16 +660,39 @@ var g_tools = [
     {
         name: "bkt",
         opacity: 1,
+        properties: [
+            {
+                name: "opacity",
+                displayName: "opacity",
+                start: 0,
+                stop: 100,
+                onChange: function(e)
+                {
+                    this.parent.opacity = e.target.value / this.stop;
+                }
+            }
+        ]
     },
     {
         name: "drp",
         size: 1,
-        opacity: 1,
     },
     {
         name: "ers",
         size: 16,
         opacity: 1,
+        properties: [
+            {
+                name: "opacity",
+                displayName: "opacity",
+                start: 0,
+                stop: 100,
+                onChange: function(e)
+                {
+                    this.parent.opacity = e.target.value / this.stop;
+                }
+            }
+        ]
     },
     {
         name: "brs",
@@ -676,6 +701,29 @@ var g_tools = [
         textured: false,
         texture: undefined,
         opacity: 1,
+        density: 1,
+        properties: [
+            {
+                name: "opacity",
+                displayName: "opacity",
+                start: 0,
+                stop: 100,
+                onChange: function(e)
+                {
+                    this.parent.opacity = e.target.value / this.stop;
+                }
+            },
+            {
+                name: "density",
+                displayName: "density",
+                start: 0,
+                stop: 100,
+                onChange: function(e)
+                {
+                    this.parent.density = e.target.value / this.stop;
+                }
+            }
+        ]
     },
     {
         name: "hand",
@@ -1341,7 +1389,7 @@ function drawLine(start,end,brushSize,spacing)
 
     // stamp every N units along line
     // 0-1
-    let brushDensity = 1;
+    let brushDensity = g_tools[g_currentTool].density || 1;
     Graphics.setRenderTarget( g_currentLayer.id );
 
     Graphics.globalAlpha = 1;
