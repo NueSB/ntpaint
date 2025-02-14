@@ -1,6 +1,6 @@
 import { Color } from "./lib/color.js";
 import { Picker } from "./lib/picker.js";
-import { Graphics, m4 } from "./lib/graphics.js";
+import { Graphics, m4, m3 } from "./lib/graphics.js";
 
 "use strict";
 
@@ -211,18 +211,50 @@ function main()
     g_drawQueue = [];
     g_drawBlank = true;
 
-
-
     requestAnimationFrame(main);
+}
+
+// draws the combination of 2 layers together.
+// args: graphics texture ids, alpha, blendmode
+
+// 4 layer draw:
+// layer 0 + layer 1 -> temp
+// temp + layer 2 -> temp2
+// temp2 + layer 3 -> temp
+
+function drawLayer(layerTop, layerBottom, topalpha = 1, blendMode = 0)
+{
+    Graphics.setShader("layerOp");
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, Graphics.textures[layerTop].texture);
+    gl.uniform1i(Graphics.currentShader.vars['layerTop'].location, 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, Graphics.textures[layerBottom].texture);
+    gl.uniform1i(Graphics.currentShader.vars['layerBottom'].location, 1);
+
+    gl.uniform1f(Graphics.currentShader.vars["topAlpha"].location, topalpha);
+    gl.uniform1i(Graphics.currentShader.vars["layerOperation"].location, blendMode);
+    
+    let texmatrix = m3.translation(0, 0);
+    texmatrix = m3.multiply(texmatrix, m3.scale(1, 1));
+    gl.uniformMatrix3fv(Graphics.currentShader.vars['uTexMatrix'].location, false, texmatrix);
+    gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+
+    Graphics.drawRect(0, 0, canvasWidth, canvasHeight, 0);
 }
 
 // draw to the texture that contains "normal" combined layers
 function drawBackbuffer( region )
 {
+    gl.disable(gl.BLEND);
+
     if (region == undefined)
     {
         region = {x: 0, y: 0, w: canvasWidth, h: canvasHeight};
     }
+
 
     Graphics.setRenderTarget("backbuffer");
     {
@@ -231,54 +263,80 @@ function drawBackbuffer( region )
         Graphics.scale(1, -1);
         Graphics.drawColor = new Color("#AAAAAA");
         Graphics.fillRect(region.x, region.y, region.w, region.h);
-        //Graphics.clearRect(region.x, region.y, region.w, region.h);
 
+        //Graphics.clearRect(region.x, region.y, region.w, region.h);
+        
         for (var i = g_layers.length-1; i >= 0 ; i--)
         {
-            gl.enable ( gl.BLEND );
-            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-            // ctx.globalCompositeOperation = LAYER MODE HERE
-
             // draw current layer image to temp layer tex,
             // then draw current line overtop that if drawing
-            // (eraser needs to erase from that)
+            // (eraser needs to erase using that)
+            Graphics.setRenderTarget("temp0");
+            Graphics.clearRect(0,0,canvasWidth,canvasHeight);
 
             Graphics.setRenderTarget("temp-layer");
+            Graphics.clearRect(0,0,canvasWidth,canvasHeight);
+            Graphics.drawImage( g_layers[i].id.toString(), 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight, 0, false );
+
+            if (drawing && g_currentLayer.id == g_layers[i].id)
             {
-                Graphics.clearRect(0, 0, canvasWidth, canvasHeight);
+                let toolOpacity = (g_tools[g_currentTool].opacity || 1);
+                // if drawing,
+                //    if erasing,
+                //       draw current layer - erase line to temp-layer
+                //    else
+                //       draw current layer + temp line to temp-layer
+                // then draw temp-layer + backbuffer to backbuffer
+                //    draw temp layer + backbuffer to temp0, 
+                //    then temp0 to backbuffer
+                let blendMode = 0;
 
-                Graphics.drawImage(  g_layers[i].renderTarget.texture, 
-                    region.x, region.y, region.w, region.h, 
-                    region.x, region.y, region.w, region.h );
-
-                if (drawing && g_currentLayer.id == g_layers[i].id)
+                if (g_currentTool == TOOL.ERASER)
                 {
-                    Graphics.globalAlpha = g_tools[g_currentTool].opacity || 1;
-                    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-                    if (g_currentTool == TOOL.ERASER)
-                        gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
-                    Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight);
-                    gl.blendEquation( gl.FUNC_ADD );
-                    /*
-                    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-                    if (g_currentTool == TOOL.ERASER)
-                        gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
-                    Graphics.globalAlpha = g_tools[g_currentTool].opacity || 1;
-                    Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight);
-                    Graphics.globalAlpha = g_layers[i].opacity;
-                    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-                    */
+                    gl.enable(gl.BLEND);
+                    gl.blendFuncSeparate(gl.ZERO, gl.ONE, gl.ONE, gl.ONE);
+                    gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
+                    Graphics.globalAlpha = toolOpacity;
+                    Graphics.drawImage("temp-line", 0, 0);
+                    Graphics.globalAlpha = 1;
+                    gl.disable(gl.BLEND);
+                    
                 }
+                else
+                {
+                    Graphics.setRenderTarget("temp0");
+                        drawLayer( "temp-line", "temp-layer", toolOpacity);
+
+                    Graphics.setRenderTarget("temp-layer");
+                        Graphics.drawImage("temp0", 0, 0);
+                    
+                }
+
+                Graphics.setRenderTarget("temp0");
+                    drawLayer( "temp-layer", "backbuffer", g_layers[i].opacity );
+            } 
+            else
+            {
+                Graphics.setRenderTarget("temp0");
+                    drawLayer( g_layers[i].id, "backbuffer", g_layers[i].opacity);
             }
-            
+
             Graphics.setRenderTarget("backbuffer");
-            //Graphics.globalAlpha = g_tools[g_currentTool].opacity || 1;
-            Graphics.globalAlpha = g_layers[i].opacity;
-            Graphics.drawImage("temp-layer", 0, 0);
+                Graphics.drawImage("temp0", 0, 0);
+            
         }
+
+        
         Graphics.restore();
     }
     Graphics.setRenderTarget(null);
+
+    /*
+    Graphics.drawColor=Color.red;
+    
+    Graphics.fillRect(0,0,canvasWidth, canvasHeight);
+    Graphics.drawImage("backbuffer", 0, 0);
+    */
 }
 
 // provide a custom region to clear if needed (cursor updates, etc)*
@@ -317,30 +375,6 @@ function mainDraw(customClear)
     Graphics.scale(1, -1);
     Graphics.drawImage( "backbuffer", 0, 0);
     Graphics.restore();
-    
-
-    /*
-    if (debug)
-    {
-        ctx.clearRect(0,0, canvas.width, canvas.height);
-        ctx.drawImage( backbuffer, 0, 0 );
-    
-        let size = 32;
-        let j = 0;
-        for(var i = g_undoHistory.length-1; i > Math.max(0, g_undoHistory.length - Math.floor(512/32)); i--)
-        {
-            ctx.font = "50px serif";
-            ctx.fillText(g_undoHistory[i].layer.name, j * size + j, canvas.height - 256);
-            //ctx.fillText(g_undoHistory[i].layer);
-            ctx_dbg.putImageData(g_undoHistory[i].data, 0, 0);
-            //Graphics.fillRect(i * size + i, canvas.height - size, size, size);
-            ctx.drawImage(debugcanvas, j * size + j, canvas.height - size - 220, size, size);
-            ctx.strokeStyle = (g_undoHistory.length - i) - 1 == g_undoPosition   ? "#00ff00" : "#ff0000";
-            ctx.strokeRect(j * size + j, canvas.height - size - 220, size, size);
-            j++;
-        }
-    }
-    */
    
     Graphics.drawColor = Color.red;
     let size = -1;
@@ -883,9 +917,11 @@ let debug = false;
 
     
     Graphics.setup( gl );
-    
+
+    Graphics.createRenderTarget( "temp0", canvasWidth, canvasHeight );
+    Graphics.createRenderTarget( "temp1", canvasWidth, canvasHeight );
     // misc texture. use for many things! primarily line drawing
-    Graphics.createRenderTarget( "temp", canvasWidth, canvasHeight );
+    Graphics.createRenderTarget( "temp-line", canvasWidth, canvasHeight );
     Graphics.createRenderTarget( "temp-layer", canvasWidth, canvasHeight );
     Graphics.textures["temp-transform"] = {
         width: 2,
@@ -1292,6 +1328,7 @@ let lastLastPt = null;
 
 function drawLine(start,end,brushSize,spacing)
 {
+    gl.disable(gl.BLEND);
     let dist = distance( start, end );
     spacing = 1;
     let step = Vec2( end.x - start.x, end.y - start.y )
@@ -1370,37 +1407,39 @@ function drawLine(start,end,brushSize,spacing)
     }
     
     gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ZERO);
-    Graphics.setRenderTarget("temp");
-    //Graphics.clearRect(0,0,canvasWidth, canvasHeight);
-    Graphics.drawInstanceRects();
-    
-    // the problem: 
-    // drawing directly to the canvas in the drawline method means we cannot make adjustments to the
-    // line before committing it.
-    // the solution:
-    // draw to the temp image, then draw it to screen when DONE drawing (in drawend).
-    // in order for this to show correctly, the drawbackbuffer method will need to be slightly
-    // reworked to draw the temp image if drawing,
-    // and draw the [temp image + current layer, not committing?] in place of the current layer if so.
-
-    if (brushSize == 1)
+    Graphics.setRenderTarget("temp-line");
     {
-        gl.disable(gl.BLEND);
-        for (var i = 0; i < erasurePositions.length; i++)
-        {
-            Graphics.pushInstanceData( 
-                erasurePositions[i][0],
-                erasurePositions[i][1],
-                1, 
-                1,
-                new Color(
-                    0,1,0,0
-                )
-            );
-        }
-        //gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
+        //Graphics.clearRect(0,0,canvasWidth, canvasHeight);
         Graphics.drawInstanceRects();
-        gl.enable(gl.BLEND);
+        
+        // the problem: 
+        // drawing directly to the canvas in the drawline method means we cannot make adjustments to the
+        // line before committing it.
+        // the solution:
+        // draw to the temp image, then draw it to screen when DONE drawing (in drawend).
+        // in order for this to show correctly, the drawbackbuffer method will need to be slightly
+        // reworked to draw the temp image if drawing,
+        // and draw the [temp image + current layer, not committing?] in place of the current layer if so.
+
+        if (brushSize == 1)
+        {
+            gl.disable(gl.BLEND);
+            for (var i = 0; i < erasurePositions.length; i++)
+            {
+                Graphics.pushInstanceData( 
+                    erasurePositions[i][0],
+                    erasurePositions[i][1],
+                    1, 
+                    1,
+                    new Color(
+                        0,1,0,0
+                    )
+                );
+            }
+            //gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
+            Graphics.drawInstanceRects();
+            gl.enable(gl.BLEND);
+        }
     }
 
     let region = rect2box(start, end, brushSize);
@@ -1758,7 +1797,7 @@ function drawStart(e)
         
         default:
             drawing = true;
-            Graphics.setRenderTarget("temp");
+            Graphics.setRenderTarget("temp-line");
             Graphics.clearRect(0,0,canvasWidth, canvasHeight);
             if (e && e.shiftKey)
             {
@@ -1878,22 +1917,47 @@ function drawEnd(e)
     // apply line to layer when finishing
 	if (drawing)
     {
+        let toolOpacity = (g_tools[g_currentTool].opacity || 1);
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
-        gl.enable(gl.BLEND);
-        Graphics.setRenderTarget( g_currentLayer.id );
+        gl.disable(gl.BLEND);
+
+       
+        let blendMode = 0;
+        if (g_currentTool == TOOL.ERASER)
         {
-            Graphics.globalAlpha = g_tools[g_currentTool].opacity || 1;
-            gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
-            if (g_currentTool == TOOL.ERASER)
+            Graphics.setRenderTarget( g_currentLayer.id );
+            {
+                gl.enable(gl.BLEND);
+                gl.blendFuncSeparate(gl.ZERO, gl.ONE, gl.ONE, gl.ONE);
                 gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
-            Graphics.drawImage("temp", 0, 0, canvasWidth, canvasHeight, 0, canvasHeight, canvasWidth, -canvasHeight);
-            gl.blendEquation( gl.FUNC_ADD );
-            Graphics.globalAlpha = 1.0;
+                Graphics.globalAlpha = toolOpacity;
+                Graphics.drawImage("temp-line", 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight, 0, true);
+                Graphics.globalAlpha = 1;
+                gl.disable(gl.BLEND);
+            }
         }
-        Graphics.setRenderTarget( "temp" );
-        Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+        else 
+        {
+            Graphics.setRenderTarget("temp0");
+            {
+                Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+                drawLayer( "temp-line", g_currentLayer.id, (g_tools[g_currentTool].opacity || 1));
+            }
+
+            Graphics.setRenderTarget( g_currentLayer.id );
+            {
+                Graphics.drawImage( "temp0", 0, 0 );
+            }
+        }
+
+        Graphics.setRenderTarget( "temp-line" );
+        {
+            Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+        }
+
         Graphics.setRenderTarget( null );
 
+        drawing = false;
         drawBackbuffer();
         pushUndoHistory();
     }
