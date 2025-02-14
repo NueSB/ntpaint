@@ -681,6 +681,7 @@ var g_tools = [
         name: "ers",
         size: 16,
         opacity: 1,
+        density: 1,
         properties: [
             {
                 name: "opacity",
@@ -690,6 +691,16 @@ var g_tools = [
                 onChange: function(e)
                 {
                     this.parent.opacity = e.target.value / this.stop;
+                }
+            },
+            {
+                name: "density",
+                displayName: "density",
+                start: 0,
+                stop: 100,
+                onChange: function(e)
+                {
+                    this.parent.density = Math.pow(e.target.value / this.stop, 3);
                 }
             }
         ]
@@ -720,7 +731,7 @@ var g_tools = [
                 stop: 100,
                 onChange: function(e)
                 {
-                    this.parent.density = e.target.value / this.stop;
+                    this.parent.density = Math.pow(e.target.value / this.stop, 3);
                 }
             }
         ]
@@ -1394,6 +1405,9 @@ function drawLine(start,end,brushSize,spacing)
 
     Graphics.globalAlpha = 1;
 
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
         if (brushSize == 1)
@@ -1436,6 +1450,7 @@ function drawLine(start,end,brushSize,spacing)
             }
         }
 
+
         //add to points stack
         Graphics.pushInstanceData( 
             Math.floor(pos.x - brushSize/2), 
@@ -1449,17 +1464,20 @@ function drawLine(start,end,brushSize,spacing)
                 brushDensity
             )
         );
+
         
         pos.x += step.x;
         pos.y += step.y;
     }
-    
-    gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ZERO);
     Graphics.setRenderTarget("temp-line");
     {
+        gl.blendEquation(gl.FUNC_ADD);
+        gl.blendFuncSeparate(gl.ONE, gl.ZERO, gl.ONE, gl.ONE);
+        
         //Graphics.clearRect(0,0,canvasWidth, canvasHeight);
         Graphics.drawInstanceRects();
         
+    gl.disable(gl.BLEND);
         // the problem: 
         // drawing directly to the canvas in the drawline method means we cannot make adjustments to the
         // line before committing it.
@@ -1471,7 +1489,6 @@ function drawLine(start,end,brushSize,spacing)
 
         if (brushSize == 1)
         {
-            gl.disable(gl.BLEND);
             for (var i = 0; i < erasurePositions.length; i++)
             {
                 Graphics.pushInstanceData( 
@@ -1494,14 +1511,6 @@ function drawLine(start,end,brushSize,spacing)
     Graphics.setRenderTarget(null);
 
     drawBackbuffer();
-    
-    /*
-    if (debug)
-        ctx_b.strokeRect(region.x, region.y, region.w, region.h);
-    */
-    //requestAnimationFrame(drawBackbuffer.bind(this, region));
-
-    //g_layerctx.globalAlpha = 1;
 }
 
 // converts a (start, end) rect to a (x,y,w,h) rect.
