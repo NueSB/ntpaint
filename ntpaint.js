@@ -2229,6 +2229,12 @@ colorPicker.canvas.addEventListener( "pointerdown", e => {
     let x = (e.clientX - colorPicker.element.offsetLeft) / colorPicker.size;
     let y = (e.clientY - colorPicker.element.offsetTop) / colorPicker.size;
 
+
+    if (y > 0.9)
+        colorPicker.selectedRegion = "HUE";
+    else 
+        colorPicker.selectedRegion = "MAIN";
+    
     let rgb = colorPicker.getColor(
         clamp01(x), 
         clamp01(y)
@@ -2241,8 +2247,14 @@ colorPicker.canvas.addEventListener( "pointerdown", e => {
 window.addEventListener( "pointermove", e => {
     if (!colorPicker.mouseDown) 
         return;
+   
     let x = (e.clientX - colorPicker.element.offsetLeft) / colorPicker.size;
     let y = (e.clientY - colorPicker.element.offsetTop) / colorPicker.size;
+
+    if (colorPicker.selectedRegion == "MAIN")
+        y = Math.min(0.9, y);
+    else if (colorPicker.selectedRegion == "HUE")
+        y = Math.max(y, 0.91);
 
     let rgb = colorPicker.getColor(
         clamp01(x), 
