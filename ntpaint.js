@@ -1,6 +1,7 @@
 import { Color } from "./lib/color.js";
 import { Picker } from "./lib/picker.js";
 import { Graphics, m4, m3 } from "./lib/graphics.js";
+import earcut from "./lib/earcut.js";
 
 "use strict";
 
@@ -1042,6 +1043,57 @@ let debug = false;
     
     mainDraw();
     drawBackbuffer();
+
+    Graphics.setRenderTarget( g_currentLayer.id );
+	let data = [
+        0.1, 0,
+        0.1, .25,
+        0.12, 0.3,
+        0.5, 0.6,
+        0, 1,
+        1, 1,
+        1, 0,
+    ];
+    let indices = earcut(data);
+    console.log(indices);
+	let arr = [];
+    for (let i = 0; i < indices.length; i++)
+    {
+        arr.push( data[indices[i]*2] );
+        arr.push( data[indices[i]*2+1] );
+        arr.push( 0 );
+    }
+    console.log(arr);
+	let positions = new Float32Array(arr);
+    gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
+	Graphics.setShader("baseColor");
+	
+	const viewport = gl.getParameter(gl.VIEWPORT);
+	let matrix = m4.projection(
+		viewport[2],
+		viewport[3],
+		400
+	);
+	
+	gl.vertexAttribPointer(
+		Graphics.currentShader.vars['aPos'].location,
+		3,
+		gl.FLOAT,
+		false, 
+		0,
+		0
+	);   
+	
+	//matrix = m4.multiply(matrix, this.globalTransform);
+	//matrix = m4.multiply(matrix, m4.translation(x,y,z));
+	matrix = m4.multiply(matrix, m4.scaling(1000,1000,1));
+
+	gl.uniformMatrix4fv(Graphics.currentShader.vars['uMatrix'].location, false, matrix);
+	gl.uniform4f(Graphics.currentShader.vars['uColor'].location,
+	0, 0, 1, Graphics.globalAlpha);
+	gl.drawArrays(gl.TRIANGLES, 0, positions.length/3);
+	drawBackbuffer();
 }
 
 
