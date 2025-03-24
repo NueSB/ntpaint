@@ -1,7 +1,6 @@
 import { Color } from "./lib/color.js";
 import { Picker } from "./lib/picker.js";
 import { Graphics, m4, m3 } from "./lib/graphics.js";
-import earcut from "./lib/earcut.js";
 
 "use strict";
 
@@ -401,8 +400,6 @@ function mainDraw(customClear)
             Graphics.drawImage( "temp-transform", 0, 0, transformRegion.w, transformRegion.h,
                 transformRegion.x, transformRegion.y, transformRegion.w, transformRegion.h, 0, true );
         }
-
-        
     }
 
     Graphics.scale( 1/g_viewScale, 1/g_viewScale );
@@ -1846,10 +1843,11 @@ function drawStart(e)
         break;
 
         case TOOL.LASSO:
-            g_tools[g_currentTool].points = [ pos ];
+            g_tools[g_currentTool].points = [ pos.x, pos.y ];
             drawing = true;
             Graphics.setRenderTarget("temp-line");
             Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+            g_BrushSize = 2;
         break;
 
         case TOOL.BRUSH:
@@ -1927,7 +1925,12 @@ function drawMove(e)
 
         if (g_currentTool == TOOL.LASSO)
         {
-            g_tools[g_currentTool].points.push( pos );
+            g_tools[g_currentTool].points.push( pos.x );
+            g_tools[g_currentTool].points.push( pos.y );
+
+
+            //Graphics.setRenderTarget( "temp-line" );
+            //drawLassoSelection();
         }
         
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
@@ -1991,51 +1994,10 @@ function drawEnd(e)
     {
         let toolOpacity = (g_tools[g_currentTool].opacity || 1);
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
-
         if (g_currentTool == TOOL.LASSO)
         {
-            Graphics.setRenderTarget("temp-line");
-
-            let data = [];
-            for (var i = 0; i < g_tools[TOOL.LASSO].points.length; i++)
-            {
-                data.push(g_tools[TOOL.LASSO].points[i].x);
-                data.push(g_tools[TOOL.LASSO].points[i].y);
-            }
-
-            let indices = earcut(data);
-            let arr = [];
-            for (let i = 0; i < indices.length; i++)
-            {
-                arr.push( data[indices[i]*2]);
-                arr.push( data[indices[i]*2+1]);
-                arr.push( 0 );
-            }
-            let positions = new Float32Array(arr);
-            gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
-            Graphics.setShader("baseColor");
-            
-            const viewport = gl.getParameter(gl.VIEWPORT);
-            let matrix = m4.projection(
-                viewport[2],
-                viewport[3],
-                400
-            );
-            
-            gl.vertexAttribPointer(
-                Graphics.currentShader.vars['aPos'].location,
-                3,
-                gl.FLOAT,
-                false, 
-                0,
-                0
-            );   
-        
-            gl.uniformMatrix4fv(Graphics.currentShader.vars['uMatrix'].location, false, matrix);
-            gl.uniform4f(Graphics.currentShader.vars['uColor'].location,
-            g_currentColor.r, g_currentColor.g, g_currentColor.b, Graphics.globalAlpha);
-            gl.drawArrays(gl.TRIANGLES, 0, positions.length/3);
+            Graphics.setRenderTarget(g_currentLayer.id);
+            drawLassoSelection();
         }
 
         gl.disable(gl.BLEND);
@@ -2113,6 +2075,50 @@ function drawEnd(e)
         y: lastCoords.y,
         w: Math.abs(lastCoords.x - x), 
         h: Math.abs(lastCoords.y - y) } );
+}
+
+function drawLassoSelection()
+{
+    let data = g_tools[TOOL.LASSO].points;
+
+    let arr = Tesselator.triangulate( [new Float32Array(data)] );
+    let positions = new Float32Array( arr.length/2*3 );
+    let j = 0;
+
+    for (var i = 0; i < arr.length; i+=2)
+    {
+        positions[j] = arr[i];
+        positions[j+1] = arr[i+1];
+        positions[j+2] = 0;
+        j += 3;
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    Graphics.setShader("baseColor");
+    
+    const viewport = gl.getParameter(gl.VIEWPORT);
+    let matrix = m4.projection(
+        viewport[2],
+        viewport[3],
+        400
+    );
+    //matrix = m4.multiply(matrix, m4.scaling(canvasWidth,canvasHeight,1));
+    
+    gl.vertexAttribPointer(
+        Graphics.currentShader.vars['aPos'].location,
+        3,
+        gl.FLOAT,
+        false, 
+        0,
+        0
+    );   
+
+    gl.uniformMatrix4fv(Graphics.currentShader.vars['uMatrix'].location, false, matrix);
+    gl.uniform4f(Graphics.currentShader.vars['uColor'].location,
+    g_currentColor.r, g_currentColor.g, g_currentColor.b, Graphics.globalAlpha);
+    gl.drawArrays(gl.TRIANGLES, 0, positions.length/3);
+
 }
 
 function exportCopy(save)
