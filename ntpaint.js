@@ -1927,10 +1927,6 @@ function drawMove(e)
         {
             g_tools[g_currentTool].points.push( pos.x );
             g_tools[g_currentTool].points.push( pos.y );
-
-
-            //Graphics.setRenderTarget( "temp-line" );
-            //drawLassoSelection();
         }
         
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
@@ -1993,12 +1989,13 @@ function drawEnd(e)
 	if (drawing)
     {
         let toolOpacity = (g_tools[g_currentTool].opacity || 1);
-        drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         if (g_currentTool == TOOL.LASSO)
         {
             Graphics.setRenderTarget(g_currentLayer.id);
             drawLassoSelection();
         }
+        else drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
+        
 
         gl.disable(gl.BLEND);
 
