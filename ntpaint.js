@@ -653,6 +653,16 @@ var g_tools = [
                 {
                     this.parent.opacity = e.target.value / this.stop;
                 }
+            },
+            {
+                name: "density",
+                displayName: "density",
+                start: 0,
+                stop: 100,
+                onChange: function(e)
+                {
+                    this.parent.density = Math.pow(e.target.value / this.stop, 3);
+                }
             }
         ]
 
