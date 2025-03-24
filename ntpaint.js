@@ -66,7 +66,8 @@ const TOOL = {
     ERASER: 3,
     BRUSH: 4,
     HAND: 5,
-    TRANSFORM: 6
+    TRANSFORM: 6,
+    LASSO: 7
 };
 
 class Layer {
@@ -330,13 +331,6 @@ function drawBackbuffer( region )
         Graphics.restore();
     }
     Graphics.setRenderTarget(null);
-
-    /*
-    Graphics.drawColor=Color.red;
-    
-    Graphics.fillRect(0,0,canvasWidth, canvasHeight);
-    Graphics.drawImage("backbuffer", 0, 0);
-    */
 }
 
 // provide a custom region to clear if needed (cursor updates, etc)*
@@ -406,8 +400,6 @@ function mainDraw(customClear)
             Graphics.drawImage( "temp-transform", 0, 0, transformRegion.w, transformRegion.h,
                 transformRegion.x, transformRegion.y, transformRegion.w, transformRegion.h, 0, true );
         }
-
-        
     }
 
     Graphics.scale( 1/g_viewScale, 1/g_viewScale );
@@ -755,8 +747,13 @@ var g_tools = [
         endPoint: Vec2(0,0),
         drawing: false,
         copiedTexture: false,
+    },
+    {
+        name: "lasso",
+        points: [],
     }
 ]
+
 var g_actionKeys = {
     undo: {
         key: "Z",
@@ -1052,6 +1049,8 @@ let debug = false;
     
     mainDraw();
     drawBackbuffer();
+
+
 }
 
 
@@ -1487,7 +1486,7 @@ function drawLine(start,end,brushSize,spacing)
         //Graphics.clearRect(0,0,canvasWidth, canvasHeight);
         Graphics.drawInstanceRects();
         
-    gl.disable(gl.BLEND);
+        gl.disable(gl.BLEND);
         // the problem: 
         // drawing directly to the canvas in the drawline method means we cannot make adjustments to the
         // line before committing it.
@@ -1853,6 +1852,14 @@ function drawStart(e)
         }
         break;
 
+        case TOOL.LASSO:
+            g_tools[g_currentTool].points = [ pos.x, pos.y ];
+            drawing = true;
+            Graphics.setRenderTarget("temp-line");
+            Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+            g_BrushSize = 2;
+        break;
+
         case TOOL.BRUSH:
             if (e && e.pressure)
             {
@@ -1873,6 +1880,7 @@ function drawStart(e)
                 lastCoords = pos;
                 return;
             }
+
             drawLine(pos, pos, g_BrushSize, g_brushSpacing);
         break;
     }
@@ -1923,6 +1931,12 @@ function drawMove(e)
             g_BrushSize = 1 + Math.floor(
                 (g_BrushSize + e.pressure * g_tools[g_currentTool].size) / 2
             );
+        }
+
+        if (g_currentTool == TOOL.LASSO)
+        {
+            g_tools[g_currentTool].points.push( pos.x );
+            g_tools[g_currentTool].points.push( pos.y );
         }
         
         drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
@@ -1985,7 +1999,14 @@ function drawEnd(e)
 	if (drawing)
     {
         let toolOpacity = (g_tools[g_currentTool].opacity || 1);
-        drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
+        if (g_currentTool == TOOL.LASSO)
+        {
+            Graphics.setRenderTarget(g_currentLayer.id);
+            drawLassoSelection();
+        }
+        else drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
+        
+
         gl.disable(gl.BLEND);
 
        
@@ -2061,6 +2082,50 @@ function drawEnd(e)
         y: lastCoords.y,
         w: Math.abs(lastCoords.x - x), 
         h: Math.abs(lastCoords.y - y) } );
+}
+
+function drawLassoSelection()
+{
+    let data = g_tools[TOOL.LASSO].points;
+
+    let arr = Tesselator.triangulate( [new Float32Array(data)] );
+    let positions = new Float32Array( arr.length/2*3 );
+    let j = 0;
+
+    for (var i = 0; i < arr.length; i+=2)
+    {
+        positions[j] = arr[i];
+        positions[j+1] = arr[i+1];
+        positions[j+2] = 0;
+        j += 3;
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    Graphics.setShader("baseColor");
+    
+    const viewport = gl.getParameter(gl.VIEWPORT);
+    let matrix = m4.projection(
+        viewport[2],
+        viewport[3],
+        400
+    );
+    //matrix = m4.multiply(matrix, m4.scaling(canvasWidth,canvasHeight,1));
+    
+    gl.vertexAttribPointer(
+        Graphics.currentShader.vars['aPos'].location,
+        3,
+        gl.FLOAT,
+        false, 
+        0,
+        0
+    );   
+
+    gl.uniformMatrix4fv(Graphics.currentShader.vars['uMatrix'].location, false, matrix);
+    gl.uniform4f(Graphics.currentShader.vars['uColor'].location,
+    g_currentColor.r, g_currentColor.g, g_currentColor.b, Graphics.globalAlpha);
+    gl.drawArrays(gl.TRIANGLES, 0, positions.length/3);
+
 }
 
 function exportCopy(save)
