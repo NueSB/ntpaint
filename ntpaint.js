@@ -342,7 +342,6 @@ function drawBackbuffer( region )
 // (inactive)
 function mainDraw(customClear)
 {
-    document.body.style.cursor = "auto";
     // framerate lock
     if (g_drawBlank)
     {
@@ -2208,12 +2207,19 @@ function drawEnd(e)
     if (transform.drawing)
     {
         transform.endPoint = pos;
-        
 
         transform.startPoint.x = clamp(transform.startPoint.x, 0, canvasWidth);
         transform.startPoint.y = clamp(transform.startPoint.y, 0, canvasHeight);
         transform.endPoint.x = clamp(transform.endPoint.x, 0, canvasWidth);
         transform.endPoint.y = clamp(transform.endPoint.y, 0, canvasHeight);
+
+        // startPoint MUST always be the topleft corner of the selection. swap if this isn't the case
+        if (transform.startPoint.x > transform.endPoint.x || transform.startPoint.y > transform.endPoint.y)
+        {
+            let tmp = transform.startPoint;
+            transform.startPoint = transform.endPoint;
+            transform.endPoint = tmp;
+        }
 
         transform.drawing = false;
     }
