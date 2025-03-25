@@ -433,7 +433,7 @@ function mainDraw(customClear)
 
         if (!flagExit)
         {
-            document.body.style.cursor = "crosshair";
+            document.body.style.cursor = "default";
         }
 
         function centeredBox(x,y,size)
