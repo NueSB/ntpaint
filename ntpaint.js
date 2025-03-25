@@ -424,14 +424,17 @@ function mainDraw(customClear)
                         "w","auto","e",
                         "sw","s","se",
                     ][i+j*3]+"-resize";
-                    console.log(str);
+                    //console.log(str);
                     break;
                 }
             }
             if (flagExit) break;
         }
 
-       
+        if (!flagExit)
+        {
+            document.body.style.cursor = "crosshair";
+        }
 
         function centeredBox(x,y,size)
         {
@@ -469,6 +472,9 @@ function mainDraw(customClear)
             Graphics.drawImage( "temp-transform", 0, 0, transform.origSize.x, transform.origSize.y,
                 transformRegion.x, transformRegion.y, transformRegion.w, transformRegion.h, 0, true );
         }
+    } else 
+    {
+        document.body.style.cursor = "auto";
     }
 
     
@@ -1902,7 +1908,8 @@ function drawStart(e)
                     );
                 
                 let dist = chebyshev(pos, transform.startPoint.add( offset ));
-                if ( dist*dist < transform.handleSize * 1/g_viewScale )
+                let size = transform.handleSize/g_viewScale;
+                if ( dist*dist < size*size)
                 {
                     transform.moving = true;
                     flagExit = true;
@@ -2214,13 +2221,18 @@ function drawEnd(e)
         transform.endPoint.y = clamp(transform.endPoint.y, 0, canvasHeight);
 
         // startPoint MUST always be the topleft corner of the selection. swap if this isn't the case
-        if (transform.startPoint.x > transform.endPoint.x || transform.startPoint.y > transform.endPoint.y)
+        let tmpX = transform.startPoint.x;
+        let tmpY = transform.startPoint.y;
+        if (transform.startPoint.x > transform.endPoint.x)
         {
-            let tmp = transform.startPoint;
-            transform.startPoint = transform.endPoint;
-            transform.endPoint = tmp;
+            transform.startPoint.x = transform.endPoint.x;
+            transform.endPoint.x = tmpX;
         }
-
+        if (transform.startPoint.y > transform.endPoint.y)
+        {
+            transform.startPoint.y = transform.endPoint.y;
+            transform.endPoint.y = tmpY;
+        }
         transform.drawing = false;
     }
     else if (transform.moving)
