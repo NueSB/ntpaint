@@ -178,6 +178,7 @@ body {
     box-shadow: 6px 6px 0px rgba(0,0,0,0.4);
 }
 
+
 .brush-property {
     background-color: #383838;
     color: #AAAAAA;
@@ -185,6 +186,7 @@ body {
     padding: 3px;
     margin: 4px;
 }
+
 
 .brush-toolbar {
     position: fixed;

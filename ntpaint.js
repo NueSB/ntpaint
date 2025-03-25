@@ -119,6 +119,11 @@ function clamp01(x)
     return Math.min(Math.max(x, 0), 1);
 }
 
+function chebyshev(a,b)
+{
+    return Math.max( Math.abs(b.y - a.y), Math.abs(b.x - a.x) );
+}
+
 function distance(a,b)
 {
   return Math.sqrt( Math.pow(b.x-a.x, 2) + Math.pow(b.y-a.y,2) );
@@ -337,6 +342,7 @@ function drawBackbuffer( region )
 // (inactive)
 function mainDraw(customClear)
 {
+    document.body.style.cursor = "auto";
     // framerate lock
     if (g_drawBlank)
     {
@@ -375,7 +381,7 @@ function mainDraw(customClear)
     if (g_tools[g_currentTool].size)
     {
         size = g_tools[g_currentTool].size;
-        Graphics.lineRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );    
+        Graphics.lineRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );
     }
 
     switch(g_currentTool) // cursors, whenever that happens
@@ -384,7 +390,7 @@ function mainDraw(customClear)
             break;
     }
 
-    Graphics.drawColor = Color.green;
+    Graphics.drawColor = Color.black;
 
     let transform = g_tools[TOOL.TRANSFORM];
     let transformRegion = rect2box(transform.startPoint, 
@@ -393,14 +399,80 @@ function mainDraw(customClear)
 
     if (transformRegion.w > 1 || transformRegion.h > 1)
     {
+        let region = rect2box(
+            transform.startPoint,
+            transform.endPoint
+        );
+
+        size = transform.handleSize/g_viewScale;
+
+        let flagExit = false;
+        for(let i = 0; i < 3; i++)
+        {
+            for (let j = 0; j < 3; j++)
+            {
+                let str = i.toString() + j.toString();
+
+                let offset = Vec2( [0, region.w/2, region.w][i],
+                                   [0, region.h/2, region.h][j]
+                    );
+                let dist = chebyshev(lastCoords, transform.startPoint.add( offset ));
+                if ( dist*dist < size*size)
+                {
+                    flagExit = true;
+                    document.body.style.cursor = [
+                        "nw","n","ne",
+                        "w","auto","e",
+                        "sw","s","se",
+                    ][i+j*3]+"-resize";
+                    console.log(str);
+                    break;
+                }
+            }
+            if (flagExit) break;
+        }
+
+       
+
+        function centeredBox(x,y,size)
+        {
+            Graphics.lineRect(x - size / 2, y - size/2, size, size);
+        }
+
         Graphics.lineRect( transformRegion.x, transformRegion.y, transformRegion.w, transformRegion.h );
 
+        centeredBox(transformRegion.x, 
+                    transformRegion.y, 
+                    size);
+        centeredBox(transformRegion.x + transformRegion.w / 2, 
+                    transformRegion.y, 
+                    size);
+        centeredBox(transformRegion.x + transformRegion.w, 
+                    transformRegion.y,
+                    size);
+        centeredBox(transformRegion.x, 
+                    transformRegion.y + transformRegion.h / 2, 
+                    size);
+        centeredBox(transformRegion.x + transformRegion.w / 2,
+                    transformRegion.y + transformRegion.h, 
+                    size);
+        centeredBox(transformRegion.x,
+                    transformRegion.y + transformRegion.h, 
+                    size);
+        centeredBox(transformRegion.x + transformRegion.w, 
+                    transformRegion.y + transformRegion.h / 2, 
+                    size);
+        centeredBox(transformRegion.x + transformRegion.w, 
+                    transformRegion.y + transformRegion.h, 
+                    size);
         if (transform.copiedTexture)
         {
-            Graphics.drawImage( "temp-transform", 0, 0, transformRegion.w, transformRegion.h,
+            Graphics.drawImage( "temp-transform", 0, 0, transform.origSize.x, transform.origSize.y,
                 transformRegion.x, transformRegion.y, transformRegion.w, transformRegion.h, 0, true );
         }
     }
+
+    
 
     Graphics.scale( 1/g_viewScale, 1/g_viewScale );
     Graphics.translate(-g_viewTransform.x, -g_viewTransform.y);
@@ -635,6 +707,7 @@ var g_tools = [
         name: "pcl",
         size: 16,
         opacity: 1,
+        density: 1,
         properties: [
             {
                 name: "opacity",
@@ -662,6 +735,7 @@ var g_tools = [
     {
         name: "bkt",
         opacity: 1,
+        tolerance: 10,
         properties: [
             {
                 name: "opacity",
@@ -672,7 +746,8 @@ var g_tools = [
                 {
                     this.parent.opacity = e.target.value / this.stop;
                 }
-            }
+            },
+            
         ]
     },
     {
@@ -745,6 +820,9 @@ var g_tools = [
         name: "transform",
         startPoint: Vec2(0,0),
         endPoint: Vec2(0,0),
+        origSize: Vec2(0,0),
+        movementType: "",
+        handleSize: 16,
         drawing: false,
         copiedTexture: false,
     },
@@ -1617,8 +1695,8 @@ function FFAnimation()
                                     a: bucketAnimation.data[ pixel + 3 ] };
         
                 // todo: replace with a tolerance var
-                if (colorDistance(bucketAnimation.srcColor, currentColor) > 10
-                    || Math.abs(bucketAnimation.srcColor.a - currentColor.a) > 10)
+                if (colorDistance(bucketAnimation.srcColor, currentColor) > g_tools[TOOL.BUCKET].tolerance
+                    || Math.abs(bucketAnimation.srcColor.a - currentColor.a) > g_tools[TOOL.BUCKET].tolerance)
                 {
                     //console.log(`breaking; too high color dist @ ${point.x}, ${point.y}`)
                     canProcess = false;
@@ -1808,35 +1886,65 @@ function drawStart(e)
             // does not contain a selection.
         let transform = g_tools[TOOL.TRANSFORM];
         let region = rect2box(
-            transform.startPoint, 
+            transform.startPoint,
             transform.endPoint
         );
 
-        if (!boxIntersect(region.x, region.y, region.w, region.h,
-            pos.x, pos.y, 1, 1
-        ))
+        let flagExit = false;
+        for(let i = 0; i < 3; i++)
         {
-            if (transform.copiedTexture)
+            for (let j = 0; j < 3; j++)
             {
-                // paste image on click-off
-                Graphics.setRenderTarget( g_currentLayer.id );
-                let region = rect2box(transform.startPoint, transform.endPoint);
-                Graphics.drawImage( "temp-transform", 0, 0, region.w, region.h,
-                    region.x, region.y, region.w, region.h, 0, true );
-                pushUndoHistory();
-                drawBackbuffer();
+                let str = i.toString() + j.toString();
+
+
+                let offset = Vec2( [0, region.w/2, region.w][i],
+                                   [0, region.h/2, region.h][j]
+                    );
+                
+                let dist = chebyshev(pos, transform.startPoint.add( offset ));
+                if ( dist*dist < transform.handleSize * 1/g_viewScale )
+                {
+                    transform.moving = true;
+                    flagExit = true;
+                    transform.movementType = str;
+                    break;
+                }
             }
+            if (flagExit) break;
+        }
 
-            transform.startPoint = pos;
-            transform.drawing = true;
-            transform.copiedTexture = false;
-        } else
+        if (!flagExit)
         {
-            transform.moving = true;
+            if (!boxIntersect(region.x, region.y, region.w, region.h, pos.x, pos.y, 1, 1))
+            {
+                if (transform.copiedTexture)
+                {
+                    // paste image on click-off
+                    Graphics.setRenderTarget( g_currentLayer.id );
+                    let region = rect2box(transform.startPoint, transform.endPoint);
+                    Graphics.drawImage( "temp-transform", 0, 0, transform.origSize.x, transform.origSize.h,
+                        region.x, region.y, region.w, region.h, 0, true );
+                    pushUndoHistory();
+                    drawBackbuffer();
+                }
 
+                transform.startPoint = pos;
+                transform.drawing = true;
+                transform.copiedTexture = false;
+            }    
+            else
+            {
+                transform.moving = true;
+                transform.movementType = "move";
+            }
+        }
+        
+
+        if (transform.moving)
+        {         
             if (!transform.copiedTexture)
             {
-                let region = rect2box(transform.startPoint, transform.endPoint);
                 Graphics.setRenderTarget( g_currentLayer.id );
                 gl.bindTexture(gl.TEXTURE_2D, Graphics.textures["temp-transform"].texture);
                 gl.texImage2D(
@@ -1848,6 +1956,7 @@ function drawStart(e)
                 Graphics.clearRect(region.x, canvasHeight-region.h-region.y, region.w, region.h);
                 drawBackbuffer();
                 transform.copiedTexture = true;
+                transform.origSize = Vec2(region.w, region.h);
             }
         }
         break;
@@ -1951,8 +2060,48 @@ function drawMove(e)
     if (transform.moving)
     {
         let delta = pos.sub(lastCoords);
-        transform.startPoint = transform.startPoint.add( delta );
-        transform.endPoint = transform.endPoint.add( delta );
+
+        switch(transform.movementType)
+        {
+            case "move":
+                transform.startPoint = transform.startPoint.add( delta );
+                transform.endPoint = transform.endPoint.add( delta );
+            break;
+
+            case "00":
+                transform.startPoint = transform.startPoint.add( delta );
+            break;
+            
+            case "10":
+                transform.startPoint.y += delta.y;
+            break;
+
+            case "20":
+                transform.startPoint.y += delta.y;
+                transform.endPoint.x += delta.x;
+            break;
+
+            case "01":
+                transform.startPoint.x += delta.x;
+            break;
+
+            case "21":
+                transform.endPoint.x += delta.x;
+            break;
+
+            case "02":
+                transform.startPoint.x += delta.x;
+                transform.endPoint.y += delta.y;
+            break;
+
+            case "12":
+                transform.endPoint.y += delta.y;
+            break;
+
+            case "22":
+                transform.endPoint = transform.endPoint.add(delta);
+            break;
+        }
     }
 
     mainDraw( { x: lastCoords.x, 
