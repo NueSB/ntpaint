@@ -82,6 +82,7 @@ class Layer {
     ctx = null;
     uiElement = null;
     isDirty = false;
+    visible = true;
 
     constructor(name = "X")
     {
@@ -105,6 +106,12 @@ class Layer {
     drawCanvas()
     {
         
+    }
+
+    toggleVisibility()
+    {
+        this.visible = !this.visible;
+        drawBackbuffer();
     }
 }
 
@@ -274,6 +281,9 @@ function drawBackbuffer( region )
         
         for (var i = g_layers.length-1; i >= 0 ; i--)
         {
+            if (!g_layers[i].visible)
+                continue;
+        
             // draw current layer image to temp layer tex,
             // then draw current line overtop that if drawing
             // (eraser needs to erase using that)
@@ -551,7 +561,7 @@ function createLayer(index, name, pushUndo=false)
     uiLayerTemplate.style.display = "none";
 
     layer.uiElement = layerUI; 
-    layer.uiElement.querySelector(".layer-img").appendChild( layer.canvas );
+    //layer.uiElement.querySelector(".layer-img").appendChild( layer.canvas );
 
     if (pushUndo)
     {
@@ -567,6 +577,16 @@ function createLayer(index, name, pushUndo=false)
     }
 
     layerUI.querySelector("span").innerHTML = layer.name;
+    layerUI.querySelector(".visibility-button").onclick = (e) => {
+        layer.toggleVisibility();
+        e.target.innerHTML = layer.visible ? "o" : "-";
+        if (layer.visible)
+        {
+            layerUI.classList.remove("inactive")
+        } else layerUI.classList.add("inactive");
+        e.stopPropagation();
+    };
+
     layerUI.onclick = (e) => {
         // traverse back up to main layer element as clicks can select any child
         let curElement = e.target;
@@ -1114,8 +1134,6 @@ let debug = false;
         }
     );
 
-
-    
     setActiveLayer( 0 );
 
     Graphics.setRenderTarget("backbuffer");
