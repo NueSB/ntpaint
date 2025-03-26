@@ -727,7 +727,7 @@ var g_tools = [
             {
                 name: "density",
                 displayName: "density",
-                start: 0,
+                start: 1,
                 stop: 100,
                 onChange: function(e)
                 {
@@ -778,7 +778,7 @@ var g_tools = [
             {
                 name: "density",
                 displayName: "density",
-                start: 0,
+                start: 1,
                 stop: 100,
                 onChange: function(e)
                 {
@@ -809,7 +809,7 @@ var g_tools = [
             {
                 name: "density",
                 displayName: "density",
-                start: 0,
+                start: 1,
                 stop: 100,
                 onChange: function(e)
                 {
@@ -827,7 +827,7 @@ var g_tools = [
         endPoint: Vec2(0,0),
         origSize: Vec2(0,0),
         movementType: "",
-        handleSize: 16,
+        handleSize: 9,
         drawing: false,
         copiedTexture: false,
     },
@@ -1207,6 +1207,7 @@ async function pasteImage(position)
                 tempCanvas.width = img.width;
                 tempCanvas.height = img.height;
                 let region = { x:0,y:0,w:img.width,h:img.height };
+
                 Graphics.textures["temp-transform"].width = region.w;
                 Graphics.textures["temp-transform"].height = region.h;
                                 
@@ -1218,6 +1219,7 @@ async function pasteImage(position)
                 setTool( TOOL.TRANSFORM );
                 let transform = g_tools[TOOL.TRANSFORM];
                 transform.drawing = false;
+                transform.origSize = Vec2(img.width, img.height);
                 transform.startPoint = Vec2(0,0);
                 transform.endPoint = Vec2( img.width, img.height );
 
@@ -1515,7 +1517,7 @@ function drawLine(start,end,brushSize,spacing)
             {
                 if (lastLastPt)
                 {
-                    console.log(lastLastPt.x, lastLastPt.y, "|", lastPt.x, lastPt.y, "|", current.x, current.y);
+                    //console.log(lastLastPt.x, lastLastPt.y, "|", lastPt.x, lastPt.y, "|", current.x, current.y);
                     
                     if (
                         (

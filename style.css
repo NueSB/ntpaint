@@ -180,13 +180,13 @@ body {
 
 
 .brush-property {
+    display: none;
     background-color: #383838;
     color: #AAAAAA;
     border: 1px solid black;
     padding: 3px;
     margin: 4px;
 }
-
 
 .brush-toolbar {
     position: fixed;
