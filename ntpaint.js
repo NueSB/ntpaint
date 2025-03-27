@@ -2320,17 +2320,36 @@ function exportCopy(save)
     displayToast("exporting...");
     drawBackbuffer();
     Graphics.setRenderTarget( "backbuffer" );
-    let data = Graphics.getImageData(0,0,canvasWidth,canvasHeight).data;
-    tempCanvas.width = canvasWidth;
-    tempCanvas.height = canvasHeight;
+    let region = rect2box(
+            g_tools[TOOL.TRANSFORM].startPoint,
+            g_tools[TOOL.TRANSFORM].endPoint
+    );
 
-    let imgData = tempCtx.createImageData(canvasWidth, canvasHeight);
+    let copyRegion = {x:0,y:0,w:canvasWidth,h:canvasHeight};
+
+    if (region.w > 1 || region.h > 1)
+    {
+        copyRegion = {x:region.x, y:canvasHeight-region.h-region.y, w:region.w, h:region.h};
+        console.log(copyRegion);
+    }
+
+
+    /*
+    0 0 1024 1024 -> full img
+    0 0 512 512 -> half img starting from middle
+    thus add height to the...?
+    */
+    let data = Graphics.getImageData(copyRegion.x, copyRegion.y, copyRegion.w, copyRegion.h).data;
+    tempCanvas.width = copyRegion.w;
+    tempCanvas.height = copyRegion.h;
+
+    let imgData = tempCtx.createImageData(copyRegion.w, copyRegion.h);
     
     const bytesPerPixel = 4; // Assuming RGBA format
-    const rowSize = canvasWidth * bytesPerPixel;
-    for (let row = 0; row < canvasHeight; row++) {
+    const rowSize = copyRegion.w * bytesPerPixel;
+    for (let row = 0; row < copyRegion.h; row++) {
         const srcStart = row * rowSize;
-        const dstStart = (canvasHeight - row - 1) * rowSize;
+        const dstStart = (copyRegion.h - row - 1) * rowSize;
 
         // Copy the row to its flipped position
         imgData.data.set(data.subarray(srcStart, srcStart + rowSize), dstStart);
