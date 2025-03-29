@@ -65,9 +65,8 @@ const TOOL = {
     EYEDROPPER: 2,
     ERASER: 3,
     BRUSH: 4,
-    HAND: 5,
-    TRANSFORM: 6,
-    LASSO: 7
+    TRANSFORM: 5,
+    LASSO: 6
 };
 
 class Layer {
@@ -406,12 +405,8 @@ function mainDraw(customClear)
         transform.endPoint,
     );
 
-    if (transformRegion.w > 1 || transformRegion.h > 1)
+    if (transform.regionActive || transform.drawing)
     {
-        let region = rect2box(
-            transform.startPoint,
-            transform.endPoint
-        );
 
         size = transform.handleSize/g_viewScale;
 
@@ -422,8 +417,8 @@ function mainDraw(customClear)
             {
                 let str = i.toString() + j.toString();
 
-                let offset = Vec2( [0, region.w/2, region.w][i],
-                                   [0, region.h/2, region.h][j]
+                let offset = Vec2( [0, transformRegion.w/2, transformRegion.w][i],
+                                   [0, transformRegion.h/2, transformRegion.h][j]
                     );
                 let dist = chebyshev(lastCoords, transform.startPoint.add( offset ));
                 if ( dist*dist < size*size)
@@ -839,10 +834,7 @@ var g_tools = [
         ]
     },
     {
-        name: "hand",
-    },
-    {
-        name: "transform",
+        name: "select",
         startPoint: Vec2(0,0),
         endPoint: Vec2(0,0),
         origSize: Vec2(0,0),
@@ -1031,8 +1023,10 @@ let debug = false;
     debugcanvas.width = canvasWidth;
     var ctx_dbg = debugcanvas.getContext("2d");
 
+    /*
     let icon = document.createElement("img");
     icon.src = "images/placeholder.png";
+    */
     for (let i = 0; i < g_tools.length; i++)
     {
         // provide a parent property to every brush adjustable property
@@ -1046,7 +1040,7 @@ let debug = false;
 
         let button = document.createElement("button");
         button.innerHTML += g_tools[i].name;
-        button.appendChild(icon.cloneNode());
+        //button.appendChild(icon.cloneNode());
         button.onclick = function() { setTool( i ) };
         uiBottomToolbar.appendChild(button);
     }
@@ -1055,26 +1049,26 @@ let debug = false;
     {
         let button = document.createElement("button");
         button.innerHTML += i.toString().padStart(3, "0");
-        button.appendChild(icon.cloneNode());
+        //button.appendChild(icon.cloneNode());
         button.onclick = function() { setBrushSize( i ) };
         uiBottomToolbar.appendChild(button);
     }
 
     let button = document.createElement("button");
     button.innerHTML = "undo";
-    button.appendChild(icon).cloneNode();
+    //button.appendChild(icon).cloneNode();
     button.onclick = function() { undo() };
     uiBottomToolbar.appendChild(button);
 
     button = document.createElement("button");
     button.innerHTML = "redo";
-    button.appendChild(icon.cloneNode());
+    //button.appendChild(icon.cloneNode());
     button.onclick = function() { redo() };
     uiBottomToolbar.appendChild(button);
 
     button = document.createElement("button");
     button.innerHTML = "clear";
-    button.appendChild(icon.cloneNode());
+    //button.appendChild(icon.cloneNode());
     button.onclick = function() { clearLayer() };
     uiBottomToolbar.appendChild(button);
 
@@ -1822,6 +1816,18 @@ function eyedrop(x,y, mouseIndex = 0)
     g_charAnimation = setTimeout( () => { setCharacterIcon("nit1") }, 16.666666666*2 );
 }
 
+function pasteTransformImage()
+{
+    let transform = g_tools[TOOL.TRANSFORM];
+    Graphics.setRenderTarget( g_currentLayer.id );
+    let region = rect2box(transform.startPoint, transform.endPoint);
+    Graphics.drawImage( "temp-transform", 0, 0, transform.origSize.x, transform.origSize.h,
+        region.x, region.y, region.w, region.h, 0, true );
+    pushUndoHistory();
+    drawBackbuffer();
+    transform.regionActive = false;
+}
+
 function drawStart(e)
 {
     g_isDragging = false;
@@ -1893,6 +1899,11 @@ function drawStart(e)
     
     setCharacterIcon("nit_think" + index);
 
+    if (g_tools[TOOL.TRANSFORM].regionActive && g_currentTool != TOOL.TRANSFORM)
+    {
+        pasteTransformImage();
+    }
+
     switch (g_currentTool)
     {
         case TOOL.BUCKET:
@@ -1910,10 +1921,7 @@ function drawStart(e)
             // you will make a new one if you click in a region that
             // does not contain a selection.
         let transform = g_tools[TOOL.TRANSFORM];
-        let region = rect2box(
-            transform.startPoint,
-            transform.endPoint
-        );
+        let region = rect2box(transform.startPoint, transform.endPoint);
 
         let flagExit = false;
         for(let i = 0; i < 3; i++)
@@ -1947,12 +1955,7 @@ function drawStart(e)
                 if (transform.copiedTexture)
                 {
                     // paste image on click-off
-                    Graphics.setRenderTarget( g_currentLayer.id );
-                    let region = rect2box(transform.startPoint, transform.endPoint);
-                    Graphics.drawImage( "temp-transform", 0, 0, transform.origSize.x, transform.origSize.h,
-                        region.x, region.y, region.w, region.h, 0, true );
-                    pushUndoHistory();
-                    drawBackbuffer();
+                    pasteTransformImage();
                 }
 
                 transform.startPoint = pos;
@@ -1968,7 +1971,7 @@ function drawStart(e)
         
 
         if (transform.moving)
-        {         
+        {
             if (!transform.copiedTexture)
             {
                 Graphics.setRenderTarget( g_currentLayer.id );
@@ -2234,6 +2237,7 @@ function drawEnd(e)
     if (transform.drawing)
     {
         transform.endPoint = pos;
+        transform.regionActive = transform.startPoint.x != transform.endPoint.x && transform.startPoint.y != transform.endPoint.y;
 
         transform.startPoint.x = clamp(transform.startPoint.x, 0, canvasWidth);
         transform.startPoint.y = clamp(transform.startPoint.y, 0, canvasHeight);
@@ -2327,18 +2331,14 @@ function exportCopy(save)
 
     let copyRegion = {x:0,y:0,w:canvasWidth,h:canvasHeight};
 
-    if (region.w > 1 || region.h > 1)
+    //Graphics.setRenderTarget(g_currentLayer.id);
+    // use region if transform region set
+    if (g_tools[TOOL.TRANSFORM].regionActive)
     {
         copyRegion = {x:region.x, y:canvasHeight-region.h-region.y, w:region.w, h:region.h};
         console.log(copyRegion);
     }
 
-
-    /*
-    0 0 1024 1024 -> full img
-    0 0 512 512 -> half img starting from middle
-    thus add height to the...?
-    */
     let data = Graphics.getImageData(copyRegion.x, copyRegion.y, copyRegion.w, copyRegion.h).data;
     tempCanvas.width = copyRegion.w;
     tempCanvas.height = copyRegion.h;
