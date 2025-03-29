@@ -178,8 +178,18 @@ body {
     box-shadow: 6px 6px 0px rgba(0,0,0,0.4);
 }
 
-.brush-property {
+.brush-toolbar {
     display: none;
+    width: 34%;
+    height: 50%;
+    position: absolute;
+    left: 66%;
+    bottom: 5%;
+    padding-left: 32px;
+}
+
+.brush-property {
+    max-width: 50%;
     background-color: #383838;
     color: #AAAAAA;
     border: 1px solid black;
@@ -187,11 +197,26 @@ body {
     margin: 4px;
 }
 
-.brush-toolbar {
-    position: fixed;
-    right: 10%;
-    bottom: 30%;
-    margin: 20px;
+.property-click-hitbox {
+    z-index: 1;
+    width: 30%;
+    height: 44%;
+    position: absolute;
+    left: 88%;
+    bottom: 20%;
+    background-color: blue;
+    opacity: 0%;
+}
+
+.property-hover-hitbox {
+    display: none;
+    width: 30%;
+    height: 100%;
+    position: absolute;
+    left: 70%;
+    bottom: 5%;
+    background-color: red;
+    opacity: 30%;
 }
 
 .layer {

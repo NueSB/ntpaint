@@ -34,6 +34,7 @@ var canvas = document.querySelector("#c"),
         }
     ),
     uiCharacterIcon = document.querySelector("#overlaychar-img"),
+    uiBrushToolbar = document.querySelector(".brush-toolbar"),
     uiLayerContainer = document.querySelector(".layercontainer"),
     uiLayerList = document.querySelector("#layerlist"),
     uiLayerTemplate = document.querySelector(".layer"),
@@ -222,6 +223,8 @@ function main()
 
     g_drawQueue = [];
     g_drawBlank = true;
+
+
 
     requestAnimationFrame(main);
 }
@@ -487,7 +490,7 @@ function mainDraw(customClear)
         document.body.style.cursor = "auto";
     }
 
-    
+    //drawResizeHandles( {x:0, y:0, w: canvasWidth, h:canvasHeight}, 9 );
 
     Graphics.scale( 1/g_viewScale, 1/g_viewScale );
     Graphics.translate(-g_viewTransform.x, -g_viewTransform.y);
@@ -1005,6 +1008,7 @@ var g_actionKeys = {
 var g_drawQueue = [];
 var g_drawBlank = false; // draw "blanking period"; space between frames
 var g_brushSpacing = 2;
+var g_BrushTrayVisible = false;
 var g_isLoaded = false;
 var g_isDragging = false;
 var g_charAnimation = undefined;
@@ -1083,6 +1087,18 @@ let debug = false;
         }
     );
 
+    document.querySelector(".property-click-hitbox").addEventListener("click", (e) =>
+    {
+        g_BrushTrayVisible = true;
+        uiBrushToolbar.style.display = "block";
+    });
+
+    document.querySelector(".brush-toolbar").addEventListener("mouseleave", (e) =>
+    {
+        g_BrushTrayVisible = false;
+        uiBrushToolbar.style.display = "none";
+    });
+    
     
     Graphics.setup( gl );
 
@@ -2400,7 +2416,21 @@ canvas.addEventListener("mouseup", e => { drawEnd(e) });
 canvas.addEventListener("pointerdown", e => { 
     drawStart(e) 
 });
-window.addEventListener("pointermove", e => { window.requestAnimationFrame(drawMove.bind(this,e)) });
+window.addEventListener("pointermove", e => { 
+/*
+    if (g_BrushTrayVisible)
+    {
+        let x = e.clientX - canvas.offsetLeft;
+        let y = e.clientY - canvas.offsetTop;
+
+        if (boxIntersect(x,y, 1, 1,
+                         document.body.clientWidth * 0.32,
+                         document.body.clientHeight * ()
+        ))
+    }
+*/
+    window.requestAnimationFrame(drawMove.bind(this,e)) 
+});
 window.addEventListener("pointerup", e => { 
     drawEnd(e); 
     colorPicker.mouseDown = false; 
