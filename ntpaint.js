@@ -347,6 +347,73 @@ function drawBackbuffer( region )
     Graphics.setRenderTarget(null);
 }
 
+function drawResizeHandles(region, handleSize)
+{
+    let topleft = Vec2(region.x, region.y);
+    let size = handleSize/g_viewScale;
+
+    let flagExit = false;
+    for(let i = 0; i < 3; i++)
+    {
+        for (let j = 0; j < 3; j++)
+        {
+            let str = i.toString() + j.toString();
+
+            let offset = Vec2( [0, region.w/2, region.w][i],
+                               [0, region.h/2, region.h][j]
+                );
+            let dist = chebyshev(lastCoords, topleft.add( offset ));
+            if ( dist*dist < size*size)
+            {
+                flagExit = true;
+                document.body.style.cursor = [
+                    "nw","n","ne",
+                    "w","auto","e",
+                    "sw","s","se",
+                ][i+j*3]+"-resize";
+                //console.log(str);
+                break;
+            }
+        }
+        if (flagExit) break;
+    }
+
+    if (!flagExit)
+    {
+        document.body.style.cursor = "default";
+    }
+
+    function centeredBox(x,y,size)
+    {
+        Graphics.lineRect(x - size / 2, y - size/2, size, size);
+    }
+
+    centeredBox(region.x, 
+                region.y, 
+                size);
+    centeredBox(region.x + region.w / 2, 
+                region.y, 
+                size);
+    centeredBox(region.x + region.w, 
+                region.y,
+                size);
+    centeredBox(region.x, 
+                region.y + region.h / 2, 
+                size);
+    centeredBox(region.x + region.w / 2,
+                region.y + region.h, 
+                size);
+    centeredBox(region.x,
+                region.y + region.h, 
+                size);
+    centeredBox(region.x + region.w, 
+                region.y + region.h / 2, 
+                size);
+    centeredBox(region.x + region.w, 
+                region.y + region.h, 
+                size);
+}
+
 // provide a custom region to clear if needed (cursor updates, etc)*
 // (inactive)
 function mainDraw(customClear)
@@ -407,71 +474,9 @@ function mainDraw(customClear)
 
     if (transform.regionActive || transform.drawing)
     {
+        Graphics.lineRect(transformRegion.x, transformRegion.y, transformRegion.w, transformRegion.h, 0);
+        drawResizeHandles(transformRegion, transform.handleSize);
 
-        size = transform.handleSize/g_viewScale;
-
-        let flagExit = false;
-        for(let i = 0; i < 3; i++)
-        {
-            for (let j = 0; j < 3; j++)
-            {
-                let str = i.toString() + j.toString();
-
-                let offset = Vec2( [0, transformRegion.w/2, transformRegion.w][i],
-                                   [0, transformRegion.h/2, transformRegion.h][j]
-                    );
-                let dist = chebyshev(lastCoords, transform.startPoint.add( offset ));
-                if ( dist*dist < size*size)
-                {
-                    flagExit = true;
-                    document.body.style.cursor = [
-                        "nw","n","ne",
-                        "w","auto","e",
-                        "sw","s","se",
-                    ][i+j*3]+"-resize";
-                    //console.log(str);
-                    break;
-                }
-            }
-            if (flagExit) break;
-        }
-
-        if (!flagExit)
-        {
-            document.body.style.cursor = "default";
-        }
-
-        function centeredBox(x,y,size)
-        {
-            Graphics.lineRect(x - size / 2, y - size/2, size, size);
-        }
-
-        Graphics.lineRect( transformRegion.x, transformRegion.y, transformRegion.w, transformRegion.h );
-
-        centeredBox(transformRegion.x, 
-                    transformRegion.y, 
-                    size);
-        centeredBox(transformRegion.x + transformRegion.w / 2, 
-                    transformRegion.y, 
-                    size);
-        centeredBox(transformRegion.x + transformRegion.w, 
-                    transformRegion.y,
-                    size);
-        centeredBox(transformRegion.x, 
-                    transformRegion.y + transformRegion.h / 2, 
-                    size);
-        centeredBox(transformRegion.x + transformRegion.w / 2,
-                    transformRegion.y + transformRegion.h, 
-                    size);
-        centeredBox(transformRegion.x,
-                    transformRegion.y + transformRegion.h, 
-                    size);
-        centeredBox(transformRegion.x + transformRegion.w, 
-                    transformRegion.y + transformRegion.h / 2, 
-                    size);
-        centeredBox(transformRegion.x + transformRegion.w, 
-                    transformRegion.y + transformRegion.h, 
-                    size);
         if (transform.copiedTexture)
         {
             Graphics.drawImage( "temp-transform", 0, 0, transform.origSize.x, transform.origSize.y,
