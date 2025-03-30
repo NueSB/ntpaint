@@ -1112,6 +1112,7 @@ let debug = false;
 			//uiBrushPropPopout.play();
 			uiBrushToolbar.style.opacity = 1;
 			uiBrushToolbar.style.left = "66%";
+            setCharacterIcon("nit_think1");
 		}
     });
 
@@ -1124,9 +1125,41 @@ let debug = false;
 		//uiBrushPropPopout.play();
 		uiBrushToolbar.style.opacity = 0;
 		uiBrushToolbar.style.left = "70%";
+        setCharacterIcon("nit1");
 		
     });
+
+    function addHoverScale(selector, uiElement)
+    {
+        document.querySelector(selector).addEventListener("pointerover", (e) =>
+        {
+            uiElement.style.transform = "scale(0.9,0.9)";
+        });
     
+        document.querySelector(selector).addEventListener("pointerleave", (e) =>
+        {
+            uiElement.style.transform = "";
+        });
+    }
+    
+    addHoverScale(".property-click-hitbox", uiToolIcon);
+    addHoverScale(".menu-click-hitbox", uiCharacterIcon);
+
+
+
+    
+    document.querySelector(".property-click-hitbox").addEventListener("pointerover", (e) =>
+    {
+        uiToolIcon.style.transform = "scale(0.9,0.9)";
+    });
+
+    document.querySelector(".property-click-hitbox").addEventListener("pointerleave", (e) =>
+    {
+        uiToolIcon.style.transform = "";
+    });
+        
+    
+
     
     Graphics.setup( gl );
 
@@ -1279,6 +1312,7 @@ async function pasteImage(position)
                 
                 setTool( TOOL.TRANSFORM );
                 let transform = g_tools[TOOL.TRANSFORM];
+                transform.regionActive = true;
                 transform.drawing = false;
                 transform.origSize = Vec2(img.width, img.height);
                 transform.startPoint = Vec2(0,0);
