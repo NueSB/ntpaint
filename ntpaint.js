@@ -11,7 +11,21 @@ var canvas = document.querySelector("#c"),
     uiContainer = document.querySelector(".drawcontainer"),
     uiColorContainer = document.querySelector(".colorcontainer"),
     uiBottomToolbar = document.querySelector(".ui-bottom-toolbar"),
-    uiToolIcon = document.querySelector(".overlaytool"),
+    uiToolIcon = document.querySelector(".overlaytool img"),
+    uiToast = document.querySelector(".toast"),
+    uiCharacterIcon = document.querySelector("#overlaychar-img"),
+    uiBrushToolbar = document.querySelector(".brush-toolbar"),
+    uiLayerContainer = document.querySelector(".layercontainer"),
+    uiLayerList = document.querySelector("#layerlist"),
+    uiLayerTemplate = document.querySelector(".layer"),
+    uiLayerOpacity = document.querySelector("#opacity-ctrl"),
+    uiLayerAdd = document.querySelector("#add-layer"),
+    uiLayerRemove = document.querySelector("#remove-layer"),
+    uiBrushProps = document.querySelector("#brush-property-list"),
+    uiBrushPropTemplate = document.querySelector(".brush-property"),
+    uiBrushPreview = document.querySelector(".overlaytool canvas"),
+    uiBrushPreviewCtx = uiBrushPreview.getContext("2d"),
+    uiMenuProps = document.querySelector("#menu-property-list"),
     uiToolIconSpin = uiToolIcon.animate(
         [
             {transform: "rotateY(0deg)" },{transform: "rotateY(360deg)" }
@@ -21,7 +35,6 @@ var canvas = document.querySelector("#c"),
             easing: "cubic-bezier(0,1.31,.76,1.02)"
         }
     ),
-    uiToast = document.querySelector(".toast"),
     uiToastAnimation = uiToast.animate(
         [
             {opacity: 1},
@@ -33,16 +46,6 @@ var canvas = document.querySelector("#c"),
             easing: "linear"
         }
     ),
-    uiCharacterIcon = document.querySelector("#overlaychar-img"),
-    uiBrushToolbar = document.querySelector(".brush-toolbar"),
-    uiLayerContainer = document.querySelector(".layercontainer"),
-    uiLayerList = document.querySelector("#layerlist"),
-    uiLayerTemplate = document.querySelector(".layer"),
-    uiLayerOpacity = document.querySelector("#opacity-ctrl"),
-    uiLayerAdd = document.querySelector("#add-layer"),
-    uiLayerRemove = document.querySelector("#remove-layer"),
-    uiBrushProps = document.querySelector("#brush-property-list"),
-    uiBrushPropTemplate = document.querySelector(".brush-property"),
 	uiBrushPropPopout = uiBrushProps.animate(
 		[
 			{opacity: 0},
@@ -1022,6 +1025,7 @@ var g_drawQueue = [];
 var g_drawBlank = false; // draw "blanking period"; space between frames
 var g_brushSpacing = 2;
 var g_BrushTrayVisible = false;
+var g_MenuTrayVisible = false;
 var g_isLoaded = false;
 var g_isDragging = false;
 var g_charAnimation = undefined;
@@ -1104,29 +1108,48 @@ let debug = false;
     {
 		if (!g_BrushTrayVisible)
 		{
+            document.querySelector(".menu-click-hitbox").style.display = "none";
 			clearTimeout(g_animations.uiBrushPropPopout);
+            uiMenuProps.style.display = "none";
+            uiBrushProps.style.display = "block";
+            g_MenuTrayVisible = false;
 	        g_BrushTrayVisible = true;
 	        uiBrushToolbar.style.display = "block";
-			//uiBrushPropPopout.cancel();
-			//uiBrushPropPopout.playbackRate = 1;
-			//uiBrushPropPopout.play();
 			uiBrushToolbar.style.opacity = 1;
 			uiBrushToolbar.style.left = "66%";
             setCharacterIcon("nit_think1");
-		}
+		}        
+    });
+
+    document.querySelector(".menu-click-hitbox").addEventListener("click", (e) =>
+    {
+        if (!g_MenuTrayVisible)
+        {
+            document.querySelector(".property-click-hitbox").style.display = "none";
+            clearTimeout(g_animations.uiBrushPropPopout);
+            uiMenuProps.style.display = "block";
+            uiBrushProps.style.display = "none";
+            g_MenuTrayVisible = true;
+            g_BrushTrayVisible = false;
+            uiBrushToolbar.style.display = "block";
+            uiBrushToolbar.style.opacity = 1;
+            uiBrushToolbar.style.left = "66%";
+            setCharacterIcon("nit_think1");
+        }        
     });
 
     document.querySelector(".brush-toolbar").addEventListener("pointerleave", (e) =>
     {
+        document.querySelector(".menu-click-hitbox").style.display = "block";
+        document.querySelector(".property-click-hitbox").style.display = "block";
         g_BrushTrayVisible = false;
-		g_animations.uiBrushPropPopout = setTimeout(()=> { uiBrushToolbar.style.display = "none"; }, 50 );
-		//uiBrushPropPopout.cancel();
-		//uiBrushPropPopout.playbackRate = -1;
-		//uiBrushPropPopout.play();
-		uiBrushToolbar.style.opacity = 0;
-		uiBrushToolbar.style.left = "70%";
+        g_MenuTrayVisible = false;
+        g_animations.uiBrushPropPopout = setTimeout(()=> { 
+            uiBrushToolbar.style.display = "none";
+        }, 50 );
+        uiBrushToolbar.style.opacity = 0;
+        uiBrushToolbar.style.left = "70%";
         setCharacterIcon("nit1");
-		
     });
 
     function addHoverScale(selector, uiElement)
@@ -1282,6 +1305,11 @@ function setCharacterIcon(name)
     clearTimeout(g_charAnimation);
     g_charAnimation = undefined;
     uiCharacterIcon.src = `images/${name}.png`;
+}
+
+function updateBrushPreview()
+{
+
 }
 
 async function pasteImage(position) 
@@ -1590,7 +1618,6 @@ function drawLine(start,end,brushSize,spacing)
     // stamp every N units along line
     // 0-1
     let brushDensity = g_tools[g_currentTool].density || 1;
-    Graphics.setRenderTarget( g_currentLayer.id );
 
     Graphics.globalAlpha = 1;
 
@@ -1696,7 +1723,6 @@ function drawLine(start,end,brushSize,spacing)
         }
     }
 
-    let region = rect2box(start, end, brushSize);
     Graphics.setRenderTarget(null);
 
     drawBackbuffer();

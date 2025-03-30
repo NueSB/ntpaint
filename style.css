@@ -84,7 +84,7 @@ body {
     filter: drop-shadow( 12px 12px 0px rgb(0 0 0 / 20%));
 }
 
-.overlaytool {
+.overlaytool * {
     position: absolute;
     left: -30%;
     bottom: 100%;
@@ -102,6 +102,14 @@ body {
 .overlaychar-transform1 {
     animation: charrot ease-in-out 1s 0.25s infinite;
 }
+
+.brush-preview {
+    position: absolute;
+    left: -30%;
+    bottom: 100%;
+    transition: transform .5s cubic-bezier(0.075, 0.82, 0.165, 1);
+}
+
 
 #colorpicker {
     pointer-events: none;
@@ -193,6 +201,16 @@ body {
     transition: all 0.1s ease-in-out;
 }
 
+#brush-property-list {
+    top: 50%;
+}
+
+#menu-property-list {
+    position: relative;
+    top: 50%;
+    width: 50%;
+}
+
 .brush-property {
     max-width: 50%;
     background-color: #383838;
@@ -216,11 +234,12 @@ body {
     cursor: pointer;
 }
 
+/*
 .clickable {
     background-color: blue;
     opacity: 50%;
 }
-
+*/
 .property-click-hitbox {
     z-index: 1;
     width: 30%;

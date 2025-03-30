@@ -42,7 +42,7 @@
         <div class="ui-side-toolbar">
             <div class="property-click-hitbox clickable"></div>
             <div class="menu-click-hitbox clickable"></div>
-            <div class="brush-toolbar">
+            <div class="brush-toolbar" style="display:none;">
                 <div class="brush-property template noselect" style="display:none">
                     <span id="propname">inner peace...</span>
                     <input type="range" min="0" max="100" value="100"/>
@@ -50,12 +50,22 @@
                 <div id="brush-property-list">
 
                 </div>
+                <div id="menu-property-list">
+                    <div id="menu-list-items">
+                        <div class="floating-button noselect" id="button-canvas-size">
+                            <span>I WANT TO CHANGE THE CANVAS SIZE</span>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="overlaychar-container">
                 <div class="overlaychar-transform1">
                     <div class="overlaychar noselect">
                         <img src="images/nit1.png" id="overlaychar-img"/>
-                        <img src="images/brush.png" class="overlaytool"/>    
+                        <div class="overlaytool">
+                            <img src="images/brush.png"/>
+                            <canvas id="brush-preview" width="512" height="512"></canvas>
+                        </div>
                     </div>
                 </div>
 
