@@ -40,8 +40,6 @@
             </canvas>
         </div>
         <div class="ui-side-toolbar">
-            <div class="property-click-hitbox clickable"></div>
-            <div class="menu-click-hitbox clickable"></div>
             <div class="brush-toolbar" style="display:none;">
                 <div class="brush-property template noselect" style="display:none">
                     <span id="propname">inner peace...</span>
@@ -60,10 +58,10 @@
             </div>
             <div class="overlaychar-container">
                 <div class="overlaychar-transform1">
-                    <div class="overlaychar noselect">
-                        <img src="images/nit1.png" id="overlaychar-img"/>
+                    <div class="overlaychar">
+                        <img class="menu-click-hitbox clickable" src="images/nit1.png" id="overlaychar-img"/>
                         <div class="overlaytool">
-                            <img src="images/brush.png"/>
+                            <img class="clickable property-click-hitbox" src="images/brush.png"/>
                             <canvas id="brush-preview" width="512" height="512" style="display:none;"></canvas>
                         </div>
                     </div>

@@ -1111,7 +1111,8 @@ let debug = false;
     {
 		if (!g_BrushTrayVisible)
 		{
-            document.querySelector(".menu-click-hitbox").style.display = "none";
+            document.querySelector(".menu-click-hitbox").style.pointerEvents = "none";
+            document.querySelector(".property-click-hitbox").style.pointerEvents = "none";
 			clearTimeout(g_animations.uiBrushPropPopout);
             uiMenuProps.style.display = "none";
             uiBrushProps.style.display = "block";
@@ -1123,7 +1124,7 @@ let debug = false;
             setCharacterIcon("nit_think1");
             uiToolIconSpin.cancel();
             uiToolIconSpin.play();
-            setTimeout(()=>{ uiBrushPreview.style.display = "block"; uiToolIcon.style.display = "none"; }, 120);
+            setTimeout(()=>{ uiBrushPreview.style.display = "block"; uiToolIcon.style.display = "none"; }, 150);
             updateBrushPreview();
 		}        
     });
@@ -1132,7 +1133,8 @@ let debug = false;
     {
         if (!g_MenuTrayVisible)
         {
-            document.querySelector(".property-click-hitbox").style.display = "none";
+            document.querySelector(".menu-click-hitbox").style.pointerEvents = "none";
+            document.querySelector(".property-click-hitbox").style.pointerEvents = "none";
             clearTimeout(g_animations.uiBrushPropPopout);
             uiMenuProps.style.display = "block";
             uiBrushProps.style.display = "none";
@@ -1153,8 +1155,8 @@ let debug = false;
             uiToolIconSpin.play();
             setTimeout(()=>{ uiBrushPreview.style.display = "none"; uiToolIcon.style.display = "block"; }, 120);
         }
-        document.querySelector(".menu-click-hitbox").style.display = "block";
-        document.querySelector(".property-click-hitbox").style.display = "block";
+        document.querySelector(".menu-click-hitbox").style.pointerEvents = "auto";
+        document.querySelector(".property-click-hitbox").style.pointerEvents = "auto";
         g_BrushTrayVisible = false;
         g_MenuTrayVisible = false;
         g_animations.uiBrushPropPopout = setTimeout(()=> { 
