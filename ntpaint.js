@@ -42,7 +42,17 @@ var canvas = document.querySelector("#c"),
     uiLayerAdd = document.querySelector("#add-layer"),
     uiLayerRemove = document.querySelector("#remove-layer"),
     uiBrushProps = document.querySelector("#brush-property-list"),
-    uiBrushPropTemplate = document.querySelector(".brush-property");
+    uiBrushPropTemplate = document.querySelector(".brush-property"),
+	uiBrushPropPopout = uiBrushProps.animate(
+		[
+			{opacity: 0},
+			{opacity: 1},
+		],
+		{
+			duration: 100,
+			easing: "ease-in-out",
+		}
+	);
 //
     var canvasWidth = 1024;
     var canvasHeight = 1024;
@@ -726,6 +736,9 @@ var bucketAnimation = {
     iterationSkipAmt: 1,
     active: false,
 }
+var g_animations = {
+	uiBrushPropPopout: 0,
+}
 var g_undoHistory = [];
 var g_undoMax = 128;
 var g_undoPosition = 0;
@@ -1089,14 +1102,29 @@ let debug = false;
 
     document.querySelector(".property-click-hitbox").addEventListener("click", (e) =>
     {
-        g_BrushTrayVisible = true;
-        uiBrushToolbar.style.display = "block";
+		if (!g_BrushTrayVisible)
+		{
+			clearTimeout(g_animations.uiBrushPropPopout);
+	        g_BrushTrayVisible = true;
+	        uiBrushToolbar.style.display = "block";
+			//uiBrushPropPopout.cancel();
+			//uiBrushPropPopout.playbackRate = 1;
+			//uiBrushPropPopout.play();
+			uiBrushToolbar.style.opacity = 1;
+			uiBrushToolbar.style.left = "66%";
+		}
     });
 
-    document.querySelector(".brush-toolbar").addEventListener("mouseleave", (e) =>
+    document.querySelector(".brush-toolbar").addEventListener("pointerleave", (e) =>
     {
         g_BrushTrayVisible = false;
-        uiBrushToolbar.style.display = "none";
+		g_animations.uiBrushPropPopout = setTimeout(()=> { uiBrushToolbar.style.display = "none"; }, 50 );
+		//uiBrushPropPopout.cancel();
+		//uiBrushPropPopout.playbackRate = -1;
+		//uiBrushPropPopout.play();
+		uiBrushToolbar.style.opacity = 0;
+		uiBrushToolbar.style.left = "70%";
+		
     });
     
     
