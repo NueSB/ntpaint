@@ -542,7 +542,10 @@ function setTool(i)
             let propElement = uiBrushPropTemplate.cloneNode(true);
             propElement.style = "";
             propElement.querySelector("#propname").innerHTML = prop.displayName;
-            propElement.querySelector("input").addEventListener("input", e=>  { prop.onChange(e)});
+            propElement.querySelector("input").addEventListener("input", e=>  { 
+                prop.onChange(e); 
+                window.requestAnimationFrame(updateBrushPreview);
+            });
             // TODO: switch for input types (checkbox, range, etc)
             propElement.querySelector("input").value = tool[tool.properties[j].name]
                                                        * (tool.properties[j].stop - tool.properties[j].start) 
@@ -1118,6 +1121,10 @@ let debug = false;
 			uiBrushToolbar.style.opacity = 1;
 			uiBrushToolbar.style.left = "66%";
             setCharacterIcon("nit_think1");
+            uiToolIconSpin.cancel();
+            uiToolIconSpin.play();
+            setTimeout(()=>{ uiBrushPreview.style.display = "block"; uiToolIcon.style.display = "none"; }, 120);
+            updateBrushPreview();
 		}        
     });
 
@@ -1140,6 +1147,12 @@ let debug = false;
 
     document.querySelector(".brush-toolbar").addEventListener("pointerleave", (e) =>
     {
+        if (g_BrushTrayVisible)
+        {
+            uiToolIconSpin.cancel();
+            uiToolIconSpin.play();
+            setTimeout(()=>{ uiBrushPreview.style.display = "none"; uiToolIcon.style.display = "block"; }, 120);
+        }
         document.querySelector(".menu-click-hitbox").style.display = "block";
         document.querySelector(".property-click-hitbox").style.display = "block";
         g_BrushTrayVisible = false;
@@ -1180,10 +1193,7 @@ let debug = false;
     {
         uiToolIcon.style.transform = "";
     });
-        
-    
 
-    
     Graphics.setup( gl );
 
     Graphics.createRenderTarget( "temp0", canvasWidth, canvasHeight );
@@ -1200,7 +1210,7 @@ let debug = false;
     rescaleViewCanvas();
     
     Graphics.createRenderTarget("backbuffer", canvasWidth, canvasHeight);
-
+    Graphics.createRenderTarget("brushPreview", 512, 512);
     
 
     for (var i = 0; i < 1; i++)
@@ -1309,8 +1319,70 @@ function setCharacterIcon(name)
 
 function updateBrushPreview()
 {
+    Graphics.setRenderTarget( "brushPreview" );
+    let brushSize = 16;
+    let start = Vec2(128+brushSize,256);
+    let end = Vec2(256+128-brushSize, 256);
+    
+    gl.disable(gl.BLEND);
+    let dist = distance( start, end );
+    let spacing = 1;
+    let step = Vec2( end.x - start.x, end.y - start.y )
+                            .normalize()
+                            .scale( spacing );
+    let pos = Vec2(start.x, start.y);
 
-}
+    // stamp every N units along line
+    // 0-1
+    let brushDensity = g_tools[g_currentTool].density || 1;
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    for( var i = 0; i <= Math.floor(dist / spacing); i++)
+    {
+        let factor = i / (Math.floor(dist/spacing))
+        //add to points stack
+        Graphics.pushInstanceData( 
+            Math.floor(pos.x - brushSize/2), 
+            Math.floor(pos.y - brushSize/2) + Math.sin(2 * factor * Math.PI) * 64, 
+            brushSize,
+            brushSize,
+            new Color(
+                g_currentColor.r,
+                g_currentColor.g,
+                g_currentColor.b,
+                brushDensity
+            )
+        );
+
+        pos.x += step.x;
+        pos.y += step.y;
+    };
+
+    Graphics.drawInstanceRects();
+    Graphics.globalAlpha = 1;
+    
+    let data = Graphics.getImageData(0,0,512,512).data;
+
+    let imgData = uiBrushPreviewCtx.createImageData(512, 512);
+
+
+
+    /*
+    const bytesPerPixel = 4; // Assuming RGBA format
+    const rowSize = copyRegion.w * bytesPerPixel;
+    for (let row = 0; row < copyRegion.h; row++) {
+        const srcStart = row * rowSize;
+        const dstStart = (copyRegion.h - row - 1) * rowSize;
+
+        // Copy the row to its flipped position
+        imgData.data.set(data.subarray(srcStart, srcStart + rowSize), dstStart);
+    }
+    */
+    imgData.data.set(data)
+    uiBrushPreviewCtx.putImageData(imgData, 0,0);
+    }
 
 async function pasteImage(position) 
 {
