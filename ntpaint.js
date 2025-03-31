@@ -501,7 +501,14 @@ function mainDraw(customClear)
         document.body.style.cursor = "auto";
     }
 
-    //drawResizeHandles( {x:0, y:0, w: canvasWidth, h:canvasHeight}, 9 );
+    let canvasSizeHandles = 6;
+    drawResizeHandles( {
+        x: g_canvasNewBounds.start.x-canvasSizeHandles/2, 
+        y: g_canvasNewBounds.start.y-canvasSizeHandles/2, 
+        w: g_canvasNewBounds.end.x+canvasSizeHandles, 
+        h: g_canvasNewBounds.end.y+canvasSizeHandles}, 
+        canvasSizeHandles 
+    );
 
     Graphics.scale( 1/g_viewScale, 1/g_viewScale );
     Graphics.translate(-g_viewTransform.x, -g_viewTransform.y);
@@ -718,13 +725,17 @@ function isCanvasBlank(renderTarget)
     return !pixelBuffer.some(color => color !== 0);
 }
 
-var g_viewTransform = Vec2(0,0);
-var g_viewScale = 1.0;
+var VIEWSTATES = Object.freeze({
+    NORMAL: 0,
+    CANVAS_RESIZE: 1
+})
+
+var g_viewTransform = Vec2(512,512);
+var g_isResizingCanvas = false;
+var g_canvasResizeType = "move";
+var g_canvasNewBounds = {start:Vec2(0,0), end:Vec2(canvasWidth, canvasHeight)};
+var g_viewScale = 0.25;
 var g_BrushSize = 3;
-var g_currentLine = {
-    currentDist: 0,
-    
-}
 var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(1, 1, 1);
 var g_currentColor = g_MainColor;
@@ -1257,10 +1268,9 @@ let debug = false;
     mainDraw();
     drawBackbuffer();
 
-
-    setCanvasSize(Vec2( 512, 512 ), true)
-
+    
     /* sample "line draw" */
+    
     Graphics.setRenderTarget("temp-line");
     drawLine( Vec2(0,0,), Vec2(1024, 1024), 9, 1 );
     Graphics.setRenderTarget("temp0");
@@ -1278,8 +1288,12 @@ let debug = false;
     {
         Graphics.clearRect(0,0,canvasWidth, canvasHeight);
     }
-    pushUndoHistory()
+    pushUndoHistory();
+
+    setCanvasSize(Vec2(canvasWidth, canvasHeight*1.5), true);
+
     drawBackbuffer();
+    
 }
 
 
@@ -1566,6 +1580,14 @@ function undo()
 
         case "CANVAS_RESIZE":
             setCanvasSize(undoValue.oldSize);
+            if (undoValue.data != null)
+            {
+                for(let i = 0; i < g_layers.length; i++)
+                {
+                    Graphics.setRenderTarget(g_layers[i].id);
+                    Graphics.putImageData(undoValue.data[i], 0, 0);
+                }
+            }
             break;
         
         default:
@@ -1647,6 +1669,14 @@ function redo()
 
         case "CANVAS_RESIZE":
             setCanvasSize(undoValue.newSize);
+            if (undoValue.data)
+            {
+                for(let i = 0; i < g_layers.length; i++)
+                {
+                    Graphics.setRenderTarget(g_layers[i].id);
+                    Graphics.putImageData(undoValue.data[i], 0, 0);
+                }
+            }
             break;
         
         default:
@@ -2038,7 +2068,9 @@ function pasteTransformImage()
 
 function drawStart(e)
 {
+    g_isResizingCanvas = false;
     g_isDragging = false;
+
     let x = lastCoords.x, y = lastCoords.y, mouseIndex = 0;
     let pos = Vec2(x,y)
 
@@ -2094,6 +2126,39 @@ function drawStart(e)
             return;
         }
     }
+
+    ////// canvas resize
+    {
+        let canvasSizeHandles = 6;
+        let region = {
+            x: g_canvasNewBounds.start.x-canvasSizeHandles/2, 
+            y: g_canvasNewBounds.start.y-canvasSizeHandles/2, 
+            w: g_canvasNewBounds.end.x+canvasSizeHandles, 
+            h: g_canvasNewBounds.end.y+canvasSizeHandles
+        };
+
+        for(let i = 0; i < 3; i++)
+        {
+            for (let j = 0; j < 3; j++)
+            {
+                let str = i.toString() + j.toString();
+                let offset = Vec2( [0, region.w/2, region.w][i],
+                                   [0, region.h/2, region.h][j]
+                    );
+                
+                let dist = chebyshev(pos, Vec2(region.x, region.y).add(offset));
+                let size = canvasSizeHandles/g_viewScale;
+                if ( dist*dist < size*size)
+                {
+                    g_isResizingCanvas = true;
+                    g_canvasResizeType = str;
+                    lastCoords = pos;
+                    return;
+                }
+            }
+        }
+    }
+    //////
 
     Graphics.drawColor = g_currentColor;
 
@@ -2235,7 +2300,74 @@ function drawStart(e)
 }
 
 function drawMove(e)
-{
+{        
+
+
+    if (g_isResizingCanvas)
+    {
+
+        let x = e.clientX - canvas.offsetLeft;
+        let y = e.clientY - canvas.offsetTop;
+        let pos = Vec2(x,y).sub(g_viewTransform).scale( 1/g_viewScale );
+        let delta = pos.sub(lastCoords);
+
+        let canvasStart = g_canvasNewBounds.start;
+        let canvasEnd = g_canvasNewBounds.end; 
+
+        switch(g_canvasResizeType)
+        {
+            case "move":
+                canvasStart = canvasStart.add( delta );
+                canvasEnd = canvasEnd.add( delta );
+            break;
+    
+            case "00":
+                canvasStart = canvasStart.add( delta );
+            break;
+            
+            case "10":
+                canvasStart.y += delta.y;
+            break;
+    
+            case "20":
+                canvasStart.y += delta.y;
+                canvasEnd.x += delta.x;
+            break;
+    
+            case "01":
+                canvasStart.x += delta.x;
+            break;
+    
+            case "21":
+                canvasEnd.x += delta.x;
+            break;
+    
+            case "02":
+                canvasStart.x += delta.x;
+                canvasEnd.y += delta.y;
+            break;
+    
+            case "12":
+                canvasEnd.y += delta.y;
+            break;
+    
+            case "22":
+                canvasEnd = canvasEnd.add(delta);
+            break;
+        }
+
+        g_canvasNewBounds = {start: canvasStart, end: canvasEnd};
+
+        mainDraw( { x: lastCoords.x, 
+            y: lastCoords.y,
+            w: Math.abs(lastCoords.x - x), 
+            h: Math.abs(lastCoords.y - y) } );
+            
+        lastCoords = pos;
+
+        return;
+    }
+
     e.preventDefault();
 
     let x = e.clientX - canvas.offsetLeft;
@@ -2297,6 +2429,8 @@ function drawMove(e)
     if (transform.moving)
     {
         let delta = pos.sub(lastCoords);
+        delta.x = Math.floor(delta.x);
+        delta.y = Math.floor(delta.y);
 
         switch(transform.movementType)
         {
@@ -2353,6 +2487,14 @@ function drawMove(e)
 function drawEnd(e)
 {
     let x = lastCoords.x, y = lastCoords.y;
+
+    if (g_isResizingCanvas)
+    {
+        setCanvasSize( g_canvasNewBounds.end, true );
+        g_canvasNewBounds = {start: Vec2(0,0), end: Vec2(canvasWidth, canvasHeight)};
+        g_isResizingCanvas = false;
+        return;
+    }
 
     if (e)
     {
@@ -2530,11 +2672,56 @@ function drawLassoSelection()
 // size: Vec2
 function setCanvasSize(size, pushUndo = false)
 {
+    size = Vec2(Math.floor(size.x), Math.floor(size.y));
     let oldWidth = canvasWidth;
     let oldHeight = canvasHeight;
 
     canvasWidth = size.x;
     canvasHeight = size.y;
+
+    let cropSize = Vec2(oldWidth, oldHeight);
+    let data = null;
+
+    if (pushUndo)
+    {
+        if (canvasHeight < oldHeight || canvasWidth < oldWidth)
+        {
+            console.log("pushing data")
+            data = [];
+            for(let i = 0; i < g_layers.length; i++)
+            {
+                Graphics.setRenderTarget(g_layers[i].id);
+                data.push(Graphics.getImageData(0,0,g_layers[i].width, g_layers[i].height));
+            }
+            console.log("\t", data);
+        } 
+    }
+
+    console.log(`resizing canvas: ${Vec2(oldWidth, oldHeight)} -> ${size}, delta=${(size).sub(Vec2(oldWidth,oldHeight))}`);
+    
+    if (canvasHeight < oldHeight)
+    {
+        cropSize.y = canvasHeight;
+    }
+
+    for (let i = 0; i < g_layers.length; i++)
+    {
+        let layer = g_layers[i];
+        // copy layer to temp0 RT -> delete, remake layer texture -> paste onto new layer texture 
+        gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets["temp0"].texture.texture);
+        Graphics.setRenderTarget( layer.id );
+        gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, oldWidth, oldHeight);
+        
+        Graphics.deleteRenderTarget( layer.id );
+        layer.renderTarget = Graphics.createRenderTarget( layer.id, canvasWidth, canvasHeight );
+        
+        gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets[layer.id].texture.texture);
+        Graphics.setRenderTarget( layer.id );
+        Graphics.drawImage( "temp0", 0, 0, cropSize.x, cropSize.y, 0, 0, cropSize.x, cropSize.y, 1, true );
+
+        layer.width = canvasWidth;
+        layer.height = canvasHeight;
+    }
 
     let systemLayers = ["temp0", "temp1", "temp-line", "temp-layer", "backbuffer"];
     for (let i = 0; i < systemLayers.length; i++)
@@ -2544,34 +2731,17 @@ function setCanvasSize(size, pushUndo = false)
         Graphics.createRenderTarget( layerName, size.x, size.y );
     }
 
-    for (let i = 0; i < g_layers.length; i++)
-    {
-        let layer = g_layers[i];
-        // copy layer to temp0 RT -> delete, remake layer texture -> paste onto new layer texture 
-        gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets["temp0"].texture.texture);
-        console.log(`resizing layer ${layer}:`, layer);
-        Graphics.setRenderTarget( layer.id );
-        gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, oldWidth, oldHeight);
-        
-        Graphics.deleteRenderTarget( layer.id );
-        layer.renderTarget = Graphics.createRenderTarget( layer.id, canvasWidth, canvasHeight );
-        
-        gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets[layer.id].texture.texture);
-        Graphics.setRenderTarget( "temp0" );
-        gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, oldWidth, oldHeight);
-
-        layer.width = canvasWidth;
-        layer.height = canvasHeight;
-    }
-
     if (pushUndo)
     {
         pushUndoHistory( {
             type: "CANVAS_RESIZE",
             oldSize: Vec2(oldWidth, oldHeight),
             newSize: Vec2(canvasWidth, canvasHeight),
+            data: data
         } ); 
     }
+
+    g_canvasNewBounds = {start: Vec2(0,0), end: Vec2(canvasWidth, canvasHeight)};
 
     mainDraw();
     drawBackbuffer();
@@ -2654,18 +2824,6 @@ canvas.addEventListener("pointerdown", e => {
     drawStart(e) 
 });
 window.addEventListener("pointermove", e => { 
-/*
-    if (g_BrushTrayVisible)
-    {
-        let x = e.clientX - canvas.offsetLeft;
-        let y = e.clientY - canvas.offsetTop;
-
-        if (boxIntersect(x,y, 1, 1,
-                         document.body.clientWidth * 0.32,
-                         document.body.clientHeight * ()
-        ))
-    }
-*/
     window.requestAnimationFrame(drawMove.bind(this,e)) 
 });
 window.addEventListener("pointerup", e => { 
