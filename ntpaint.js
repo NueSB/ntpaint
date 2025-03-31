@@ -57,8 +57,8 @@ var canvas = document.querySelector("#c"),
 		}
 	);
 //
-    var canvasWidth = 1024;
-    var canvasHeight = 1024;
+var canvasWidth = 1024;
+var canvasHeight = 1024;
 
 var tempCanvas = document.createElement("canvas");
 var tempCtx = tempCanvas.getContext("2d");
@@ -355,9 +355,7 @@ function drawBackbuffer( region )
             Graphics.setRenderTarget("backbuffer");
                 Graphics.drawImage("temp0", 0, 0);
             
-        }
-
-        
+        }        
         Graphics.restore();
     }
     Graphics.setRenderTarget(null);
@@ -570,7 +568,7 @@ function createLayer(index, name, pushUndo=false)
 {
     let layer = new Layer( !name ? "Layer " + (g_layers.length+1).toString() : name );
     g_layers.unshift( layer );
-    console.log(index);
+    console.log(`create layer- index: ${index}; layer: ${layer}`);
     if (index)
         array_move(g_layers, 0, index);
     
@@ -1182,9 +1180,6 @@ let debug = false;
     
     addHoverScale(".property-click-hitbox", uiToolIcon);
     addHoverScale(".menu-click-hitbox", uiCharacterIcon);
-
-
-
     
     document.querySelector(".property-click-hitbox").addEventListener("pointerover", (e) =>
     {
@@ -1263,6 +1258,28 @@ let debug = false;
     drawBackbuffer();
 
 
+    setCanvasSize(Vec2( 512, 512 ), true)
+
+    /* sample "line draw" */
+    Graphics.setRenderTarget("temp-line");
+    drawLine( Vec2(0,0,), Vec2(1024, 1024), 9, 1 );
+    Graphics.setRenderTarget("temp0");
+    {
+        Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+        drawLayer( "temp-line", g_currentLayer.id, (g_tools[g_currentTool].opacity || 1));
+    }
+
+    Graphics.setRenderTarget( g_currentLayer.id );
+    {
+        Graphics.drawImage( "temp0", 0, 0 );
+    }
+
+    Graphics.setRenderTarget( "temp-line" );
+    {
+        Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+    }
+    pushUndoHistory()
+    drawBackbuffer();
 }
 
 
@@ -1546,6 +1563,10 @@ function undo()
                 undoValue.new,
                 undoValue.old);
             break;
+
+        case "CANVAS_RESIZE":
+            setCanvasSize(undoValue.oldSize);
+            break;
         
         default:
             console.error("ERROR: invalid undo type " + undoValue.type);
@@ -1622,6 +1643,10 @@ function redo()
             array_move(g_layers, 
                 undoValue.old,
                 undoValue.new);
+            break;
+
+        case "CANVAS_RESIZE":
+            setCanvasSize(undoValue.newSize);
             break;
         
         default:
@@ -2500,6 +2525,56 @@ function drawLassoSelection()
     g_currentColor.r, g_currentColor.g, g_currentColor.b, Graphics.globalAlpha);
     gl.drawArrays(gl.TRIANGLES, 0, positions.length/3);
 
+}
+
+// size: Vec2
+function setCanvasSize(size, pushUndo = false)
+{
+    let oldWidth = canvasWidth;
+    let oldHeight = canvasHeight;
+
+    canvasWidth = size.x;
+    canvasHeight = size.y;
+
+    let systemLayers = ["temp0", "temp1", "temp-line", "temp-layer", "backbuffer"];
+    for (let i = 0; i < systemLayers.length; i++)
+    {
+        let layerName = systemLayers[i];
+        Graphics.deleteRenderTarget( layerName );
+        Graphics.createRenderTarget( layerName, size.x, size.y );
+    }
+
+    for (let i = 0; i < g_layers.length; i++)
+    {
+        let layer = g_layers[i];
+        // copy layer to temp0 RT -> delete, remake layer texture -> paste onto new layer texture 
+        gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets["temp0"].texture.texture);
+        console.log(`resizing layer ${layer}:`, layer);
+        Graphics.setRenderTarget( layer.id );
+        gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, oldWidth, oldHeight);
+        
+        Graphics.deleteRenderTarget( layer.id );
+        layer.renderTarget = Graphics.createRenderTarget( layer.id, canvasWidth, canvasHeight );
+        
+        gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets[layer.id].texture.texture);
+        Graphics.setRenderTarget( "temp0" );
+        gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, oldWidth, oldHeight);
+
+        layer.width = canvasWidth;
+        layer.height = canvasHeight;
+    }
+
+    if (pushUndo)
+    {
+        pushUndoHistory( {
+            type: "CANVAS_RESIZE",
+            oldSize: Vec2(oldWidth, oldHeight),
+            newSize: Vec2(canvasWidth, canvasHeight),
+        } ); 
+    }
+
+    mainDraw();
+    drawBackbuffer();
 }
 
 function exportCopy(save)
