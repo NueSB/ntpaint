@@ -532,8 +532,8 @@ function setTool(i)
     let tool = g_tools[g_currentTool];
 
     let sprite = "err";
-    if (g_currentTool <= 4 && g_currentTool >= 0)
-        sprite = ["pencil", "bucket", "eyedropper", "eraser", "brush"][g_currentTool];
+    if (g_currentTool <= 6 && g_currentTool >= 0)
+        sprite = ["pencil", "bucket", "eyedropper", "eraser", "brush", "transform", "lasso"][g_currentTool];
 
     uiBrushProps.textContent = "";
     if (tool.properties)
@@ -1028,6 +1028,15 @@ var g_actionKeys = {
         event: "press",
         func: setTool,
         args: [TOOL.TRANSFORM]
+    },
+    lasso: {
+        key: "R",
+        ctrlKey: false,
+        shiftKey: false,
+        altKey: false,
+        event: "press",
+        func: setTool,
+        args: [TOOL.LASSO]
     }
 }
 var g_drawQueue = [];
@@ -1130,7 +1139,7 @@ let debug = false;
             setCharacterIcon("nit_think1");
             uiToolIconSpin.cancel();
             uiToolIconSpin.play();
-            setTimeout(()=>{ uiBrushPreview.style.display = "block"; uiToolIcon.style.display = "none"; }, 150);
+            setTimeout(()=>{ uiBrushPreview.style.display = g_currentTool == TOOL.BRUSH || g_currentTool == TOOL.PENCIL ? "block" : "none"; uiToolIcon.style.display = "none"; }, 150);
             updateBrushPreview();
 		}        
     });
@@ -1265,32 +1274,34 @@ let debug = false;
     mainDraw();
     drawBackbuffer();
 
-    
-    /* sample "line draw" */
-    
-    Graphics.setRenderTarget("temp-line");
-    drawLine( Vec2(0,0,), Vec2(1024, 1024), 9, 1 );
-    Graphics.setRenderTarget("temp0");
+    setCanvasSize(Vec2(512,512));
+
+    if (debug)
     {
-        Graphics.clearRect(0,0,canvasWidth, canvasHeight);
-        drawLayer( "temp-line", g_currentLayer.id, (g_tools[g_currentTool].opacity || 1));
+        /* sample "line draw" */
+        Graphics.setRenderTarget("temp-line");
+        drawLine( Vec2(0,0,), Vec2(1024, 1024), 9, 1 );
+        Graphics.setRenderTarget("temp0");
+        {
+            Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+            drawLayer( "temp-line", g_currentLayer.id, (g_tools[g_currentTool].opacity || 1));
+        }
+
+        Graphics.setRenderTarget( g_currentLayer.id );
+        {
+            Graphics.drawImage( "temp0", 0, 0 );
+        }
+
+        Graphics.setRenderTarget( "temp-line" );
+        {
+            Graphics.clearRect(0,0,canvasWidth, canvasHeight);
+        }
+        pushUndoHistory();
+
+        setCanvasSize(Vec2(canvasWidth, canvasHeight*1.5), Vec2(0,0), true);
+
+        drawBackbuffer();
     }
-
-    Graphics.setRenderTarget( g_currentLayer.id );
-    {
-        Graphics.drawImage( "temp0", 0, 0 );
-    }
-
-    Graphics.setRenderTarget( "temp-line" );
-    {
-        Graphics.clearRect(0,0,canvasWidth, canvasHeight);
-    }
-    pushUndoHistory();
-
-    setCanvasSize(Vec2(canvasWidth, canvasHeight*1.5), Vec2(0,0), true);
-
-    drawBackbuffer();
-    
 }
 
 
