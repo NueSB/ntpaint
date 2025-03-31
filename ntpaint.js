@@ -392,11 +392,6 @@ function drawResizeHandles(region, handleSize)
         if (flagExit) break;
     }
 
-    if (!flagExit)
-    {
-        document.body.style.cursor = "default";
-    }
-
     function centeredBox(x,y,size)
     {
         Graphics.lineRect(x - size / 2, y - size/2, size, size);
@@ -440,6 +435,8 @@ function mainDraw(customClear)
         g_drawQueue.push(customClear || undefined);
         return;
     }
+
+    document.body.style.cursor = "default";
 
     Graphics.setRenderTarget(null);
 
@@ -502,11 +499,11 @@ function mainDraw(customClear)
     }
 
     let canvasSizeHandles = 6;
-    drawResizeHandles( {
-        x: g_canvasNewBounds.start.x-canvasSizeHandles/2, 
-        y: g_canvasNewBounds.start.y-canvasSizeHandles/2, 
-        w: g_canvasNewBounds.end.x+canvasSizeHandles, 
-        h: g_canvasNewBounds.end.y+canvasSizeHandles}, 
+    drawResizeHandles( 
+        rect2box(
+            g_canvasNewBounds.start.sub(Vec2(canvasSizeHandles/2,canvasSizeHandles/2)), 
+            g_canvasNewBounds.end.add(Vec2(canvasSizeHandles, canvasSizeHandles))
+        ),
         canvasSizeHandles 
     );
 
@@ -2300,9 +2297,7 @@ function drawStart(e)
 }
 
 function drawMove(e)
-{        
-
-
+{
     if (g_isResizingCanvas)
     {
 
@@ -2322,6 +2317,7 @@ function drawMove(e)
             break;
     
             case "00":
+                console.log("nnn")
                 canvasStart = canvasStart.add( delta );
             break;
             
@@ -2335,6 +2331,7 @@ function drawMove(e)
             break;
     
             case "01":
+                console.log("nnn")
                 canvasStart.x += delta.x;
             break;
     
