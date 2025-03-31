@@ -1287,7 +1287,7 @@ let debug = false;
     }
     pushUndoHistory();
 
-    setCanvasSize(Vec2(canvasWidth, canvasHeight*1.5), true);
+    setCanvasSize(Vec2(canvasWidth, canvasHeight*1.5), Vec2(0,0), true);
 
     drawBackbuffer();
     
@@ -1318,6 +1318,7 @@ function rescaleViewCanvas()
 function clearLayer(pushUndo = true)
 {
     Graphics.setRenderTarget( g_currentLayer.id );
+    console.log(g_currentLayer.width);
     Graphics.clearRect(0,0,g_currentLayer.width, g_currentLayer.height);
     Graphics.setRenderTarget( null );
     if (pushUndo)
@@ -1511,11 +1512,16 @@ function undo()
             setActiveLayer( undoValue.layer );
             Graphics.setRenderTarget( undoValue.id );
             // find first drawing back from this value
+            // if we're drawing directly after a canvas resize, we need to clear the entire canvas and then repaste the image data
+            // since it doesn't cover the entire new area
             let foundEntry = false;
             for(var i = g_undoPosition+1; i < g_undoHistory.length; i++)
             {
                 let entry = g_undoHistory[g_undoHistory.length - 1 - i];
-                if (entry.id == undoValue.id && (entry.type == "DRAW" || entry.type == "LAYER_ADD"))
+                if (
+                    ((entry.id == undoValue.id) && (entry.type == "DRAW" || entry.type == "LAYER_ADD")) ||
+                    (entry.type == "CANVAS_RESIZE")
+                )
                 {
                     undoValue = entry;
                     foundEntry = entry.type != "LAYER_ADD";
@@ -1526,7 +1532,16 @@ function undo()
             {
                 clearLayer(false);
             } else
-                Graphics.putImageData(undoValue.data, 0, 0);
+                if (undoValue.type == "CANVAS_RESIZE")
+                {
+                    clearLayer(false);
+                    let layerIndex = g_layers.indexOf(g_currentLayer);
+
+                    Graphics.setRenderTarget(g_currentLayer.id);
+                    Graphics.putImageData(undoValue.data[layerIndex], 0, 0);
+                }
+                else
+                    Graphics.putImageData(undoValue.data, 0, 0);
             break;
         
         case "LAYER_ADD":
@@ -1576,7 +1591,7 @@ function undo()
             break;
 
         case "CANVAS_RESIZE":
-            setCanvasSize(undoValue.oldSize);
+            setCanvasSize(undoValue.oldSize, undoValue.offset);
             if (undoValue.data != null)
             {
                 for(let i = 0; i < g_layers.length; i++)
@@ -1665,7 +1680,7 @@ function redo()
             break;
 
         case "CANVAS_RESIZE":
-            setCanvasSize(undoValue.newSize);
+            setCanvasSize(undoValue.newSize, undoValue.offset);
             if (undoValue.data)
             {
                 for(let i = 0; i < g_layers.length; i++)
@@ -2127,12 +2142,10 @@ function drawStart(e)
     ////// canvas resize
     {
         let canvasSizeHandles = 6;
-        let region = {
-            x: g_canvasNewBounds.start.x-canvasSizeHandles/2, 
-            y: g_canvasNewBounds.start.y-canvasSizeHandles/2, 
-            w: g_canvasNewBounds.end.x+canvasSizeHandles, 
-            h: g_canvasNewBounds.end.y+canvasSizeHandles
-        };
+        let region = rect2box(
+            g_canvasNewBounds.start.sub(Vec2(canvasSizeHandles/2,canvasSizeHandles/2)), 
+            g_canvasNewBounds.end.add(Vec2(canvasSizeHandles, canvasSizeHandles))
+        );
 
         for(let i = 0; i < 3; i++)
         {
@@ -2317,7 +2330,6 @@ function drawMove(e)
             break;
     
             case "00":
-                console.log("nnn")
                 canvasStart = canvasStart.add( delta );
             break;
             
@@ -2331,7 +2343,6 @@ function drawMove(e)
             break;
     
             case "01":
-                console.log("nnn")
                 canvasStart.x += delta.x;
             break;
     
@@ -2487,7 +2498,8 @@ function drawEnd(e)
 
     if (g_isResizingCanvas)
     {
-        setCanvasSize( g_canvasNewBounds.end, true );
+        let region = rect2box(g_canvasNewBounds.start, g_canvasNewBounds.end); 
+        setCanvasSize( Vec2(region.w, region.h), g_canvasNewBounds.start, true );
         g_canvasNewBounds = {start: Vec2(0,0), end: Vec2(canvasWidth, canvasHeight)};
         g_isResizingCanvas = false;
         return;
@@ -2667,7 +2679,7 @@ function drawLassoSelection()
 }
 
 // size: Vec2
-function setCanvasSize(size, pushUndo = false)
+function setCanvasSize(size, offset, pushUndo = false)
 {
     size = Vec2(Math.floor(size.x), Math.floor(size.y));
     let oldWidth = canvasWidth;
@@ -2678,20 +2690,20 @@ function setCanvasSize(size, pushUndo = false)
 
     let cropSize = Vec2(oldWidth, oldHeight);
     let data = null;
+    let gOffset = Vec2(0,0);
+    if (offset)
+        gOffset = offset.scale(-1);
+
+    g_viewTransform = g_viewTransform.add(gOffset.scale(-g_viewScale));
 
     if (pushUndo)
     {
-        if (canvasHeight < oldHeight || canvasWidth < oldWidth)
+        data = [];
+        for(let i = 0; i < g_layers.length; i++)
         {
-            console.log("pushing data")
-            data = [];
-            for(let i = 0; i < g_layers.length; i++)
-            {
-                Graphics.setRenderTarget(g_layers[i].id);
-                data.push(Graphics.getImageData(0,0,g_layers[i].width, g_layers[i].height));
-            }
-            console.log("\t", data);
-        } 
+            Graphics.setRenderTarget(g_layers[i].id);
+            data.push(Graphics.getImageData(0,0,g_layers[i].width, g_layers[i].height));
+        }
     }
 
     console.log(`resizing canvas: ${Vec2(oldWidth, oldHeight)} -> ${size}, delta=${(size).sub(Vec2(oldWidth,oldHeight))}`);
@@ -2714,10 +2726,11 @@ function setCanvasSize(size, pushUndo = false)
         
         gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets[layer.id].texture.texture);
         Graphics.setRenderTarget( layer.id );
-        Graphics.drawImage( "temp0", 0, 0, cropSize.x, cropSize.y, 0, 0, cropSize.x, cropSize.y, 1, true );
+        
+        Graphics.drawImage( "temp0", 0, 0, cropSize.x, cropSize.y, gOffset.x, gOffset.y, cropSize.x, cropSize.y, 1, true );
 
-        layer.width = canvasWidth;
-        layer.height = canvasHeight;
+        g_layers[i].width = canvasWidth;
+        g_layers[i].height = canvasHeight;
     }
 
     let systemLayers = ["temp0", "temp1", "temp-line", "temp-layer", "backbuffer"];
@@ -2734,6 +2747,7 @@ function setCanvasSize(size, pushUndo = false)
             type: "CANVAS_RESIZE",
             oldSize: Vec2(oldWidth, oldHeight),
             newSize: Vec2(canvasWidth, canvasHeight),
+            offset: gOffset.multiply(Vec2(-1,-1)),
             data: data
         } ); 
     }
