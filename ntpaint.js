@@ -1139,7 +1139,10 @@ let debug = false;
             setCharacterIcon("nit_think1");
             uiToolIconSpin.cancel();
             uiToolIconSpin.play();
-            setTimeout(()=>{ uiBrushPreview.style.display = g_currentTool == TOOL.BRUSH || g_currentTool == TOOL.PENCIL ? "block" : "none"; uiToolIcon.style.display = "none"; }, 150);
+            setTimeout(()=>{ 
+                uiBrushPreview.style.display = g_currentTool == TOOL.BRUSH || g_currentTool == TOOL.PENCIL ? "block" : "none"; 
+                uiToolIcon.style.display = "none"; 
+            }, 150);
             updateBrushPreview();
 		}        
     });
@@ -1939,7 +1942,7 @@ function FFAnimation()
     //console.log("base")
     var i = 0;
     
-    while(i <= bucketAnimation.iterationSkipAmt)
+    while(bucketAnimation.ops.length > 0)
     {
         //console.log("process it")
         let canProcess = true;
@@ -1955,12 +1958,12 @@ function FFAnimation()
                 //if (i) console.log(`adding! ${point.x+x},${point.y+y}!`)
                     return i;
              }
-             const push = function(x,y) {
+             const push = function(x,y, id) {
                 if (Math.random() < 0.5)
                     bucketAnimation.ops.push( {x:point.x+x, y:point.y+y} );
                 else 
                     bucketAnimation.ops.unshift( {x:point.x+x, y:point.y+y} );
-                bucketAnimation.filledPixels[(point.x+x)+(point.y+y)*g_currentLayer.width] = 1;
+                bucketAnimation.filledPixels[(point.x+x)+(point.y+y)*g_currentLayer.width] = id + 1;
              }
 
             //canProcess = check(0,0);
@@ -1986,7 +1989,9 @@ function FFAnimation()
                 {
                     //console.log(`setting @ ${point.x}, ${point.y}`)
                     
-                    bucketAnimation.filledPixels[point.x+point.y*g_currentLayer.width] = 1;
+                    //bucketAnimation.filledPixels[point.x+point.y*g_currentLayer.width] = 1;
+
+                    let id = bucketAnimation.filledPixels[point.x+point.y*g_currentLayer.width];
 
                     bucketAnimation.data[ pixel ] = bucketAnimation.replacementColor.r * 255;
                     bucketAnimation.data[pixel+1] = bucketAnimation.replacementColor.g * 255;
@@ -1994,10 +1999,10 @@ function FFAnimation()
                     bucketAnimation.data[pixel+3] = 255;
         
                     var j = bucketAnimation.ops.length;
-                    if (check(-1,  0)) push( -1, 0 );
-                    if (check( 1,  0)) push( 1, 0 );
-                    if (check( 0, -1)) push( 0, -1 );
-                    if (check( 0,  1)) push( 0, 1 );
+                    if (check(-1,  0)) push( -1, 0, id);
+                    if (check( 1,  0)) push( 1, 0, id );
+                    if (check( 0, -1)) push( 0, -1, id );
+                    if (check( 0,  1)) push( 0, 1, id );
                     //console.log( `delta: ${bucketAnimation.ops.length-j}` );
                 }
             }
@@ -2005,23 +2010,33 @@ function FFAnimation()
         i++;
     }
 
+    // when starting the fill, we need three things:
+    // - a way to determine the origin position in shaderland
+    // a way to determine "this is where we stop" in shaderland
+    // the solution:
+    // generate a mask texture on the CPU side, and then simply animate it in shader
+    // give each 
+
+
     Graphics.setRenderTarget( g_currentLayer.id );
     Graphics.putImageData(bucketAnimation.imageData, 0, 0);
     
     drawBackbuffer();
     mainDraw();
-
+    
     bucketAnimation.iterations = 0;
-    bucketAnimation.iterationSkipAmt *= 1.3;
+    bucketAnimation.iterationSkipAmt = 100;
     
     if (bucketAnimation.ops.length > 0) 
         window.requestAnimationFrame(FFAnimation);
     else
-    {
+    {   
         pushUndoHistory();
         setCharacterIcon("nit1");
         bucketAnimation.active = false;
     }
+
+
 }
 
 // normal flood fill. only kept for reference
@@ -2324,7 +2339,6 @@ function drawMove(e)
 {
     if (g_isResizingCanvas)
     {
-
         let x = e.clientX - canvas.offsetLeft;
         let y = e.clientY - canvas.offsetTop;
         let pos = Vec2(x,y).sub(g_viewTransform).scale( 1/g_viewScale );
@@ -2448,8 +2462,6 @@ function drawMove(e)
     if (transform.moving)
     {
         let delta = pos.sub(lastCoords);
-        delta.x = Math.floor(delta.x);
-        delta.y = Math.floor(delta.y);
 
         switch(transform.movementType)
         {
@@ -2613,6 +2625,11 @@ function drawEnd(e)
         transform.startPoint.y = clamp(transform.startPoint.y, 0, canvasHeight);
         transform.endPoint.x = clamp(transform.endPoint.x, 0, canvasWidth);
         transform.endPoint.y = clamp(transform.endPoint.y, 0, canvasHeight);
+
+        transform.startPoint.x = Math.floor(transform.startPoint.x);
+        transform.startPoint.y = Math.floor(transform.startPoint.y);
+        transform.endPoint.x = Math.floor(transform.endPoint.x);
+        transform.endPoint.y = Math.floor(transform.endPoint.y);
 
         // startPoint MUST always be the topleft corner of the selection. swap if this isn't the case
         let tmpX = transform.startPoint.x;
