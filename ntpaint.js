@@ -1296,8 +1296,6 @@ let debug = false;
 
     setCanvasSize(Vec2(1024,1024));
 
-    setTimeout(()=>{executeFloodFill(512, 512, Color.red)}, 500);
-
     if (debug)
     {
         /* sample "line draw" */
@@ -1956,6 +1954,9 @@ function colorDistance(a, b)
 
 function FFAnimation(timestamp)
 {
+    if (!bucketAnimation.active)
+        return;
+
     if (bucketAnimation.lastTime == 0)
     {
         bucketAnimation.lastTime = timestamp;
@@ -2010,6 +2011,21 @@ function FFAnimation(timestamp)
 // normal flood fill. only kept for reference
 function executeFloodFill(x, y, color)
 {
+    if (bucketAnimation.active)
+    {
+        Graphics.setRenderTarget( g_currentLayer.id );
+        Graphics.putImageData(bucketAnimation.imageData, 0, 0);
+        pushUndoHistory();
+        setCharacterIcon("nit1");
+
+        bucketAnimation.active = false;
+        bucketAnimation.time = 0;
+        bucketAnimation.lastTime = 0;
+        bucketAnimation.iterations = 0;
+
+        drawBackbuffer();
+        mainDraw();
+    }
     // again; flip coords, flipped texture
     
     Graphics.setRenderTarget( g_currentLayer.id );
@@ -2017,9 +2033,8 @@ function executeFloodFill(x, y, color)
     bucketAnimation.active = true;
 
     // off by one error avoidance. it's an off by one error. remember this
-    let filledPixels = new Uint8Array(canvasWidth*(canvasHeight+1));
-    filledPixels.fill(0);
-
+    let filledPixels = new Uint8Array(canvasWidth*canvasHeight);
+    //filledPixels.fill(0);
 
     bucketAnimation.imageData = Graphics.getImageData(0, 0, g_currentLayer.width, g_currentLayer.height);
     bucketAnimation.iterations = 0;
@@ -2029,8 +2044,8 @@ function executeFloodFill(x, y, color)
     bucketAnimation.srcColor = {
          r:  bucketAnimation.imageData.data[ pixel ],
          g:  bucketAnimation.imageData.data[ pixel + 1 ],
-         b:  bucketAnimation.imageData.data[ pixel + 2],
-         a:  bucketAnimation.imageData.data[ pixel + 3 ] };
+         b:  bucketAnimation.imageData.data[ pixel + 2 ],
+         a:  bucketAnimation.imageData.data[ pixel + 3 ]};
     
     console.log("SRC COLOR: ", bucketAnimation.srcColor);
 
@@ -2120,6 +2135,7 @@ function executeFloodFill(x, y, color)
         scan(lx, xx-1, yy-1, stack);
     }
 
+    /*
     if (bucketAnimation.textureID == "")
     {
         bucketAnimation.textureID = Math.random().toString(36).substring(2);
@@ -2140,7 +2156,7 @@ function executeFloodFill(x, y, color)
             height: canvasHeight,
             texture: texture
         }
-    }
+    }*/
 
     Graphics.setShader("floodFill");
     gl.uniform1i(Graphics.currentShader.vars['image'].location, 0);
@@ -2150,6 +2166,8 @@ function executeFloodFill(x, y, color)
         bucketAnimation.replacementColor.r, 
         bucketAnimation.replacementColor.g, 
         bucketAnimation.replacementColor.b);
+    
+    console.log(bucketAnimation.replacementColor);
 
     gl.bindTexture(gl.TEXTURE_2D, Graphics.textures[bucketAnimation.textureID].texture);
 
@@ -2842,6 +2860,9 @@ function setCanvasSize(size, offset, pushUndo = false)
         else 
             gl.deleteTexture(Graphics.textures[bucketAnimation.textureID].texture);
         
+        if (debug)
+            console.log(`recreating bucket mask texture: ${canvasWidth}x${canvasHeight}`);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
         let texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8,
@@ -2863,6 +2884,7 @@ function setCanvasSize(size, offset, pushUndo = false)
 
         Graphics.setShader("floodFill");
         gl.uniform2f(Graphics.currentShader.vars['canvasResolution'].location, canvasWidth, canvasHeight)
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     }
 
     for (let i = 0; i < g_layers.length; i++)
