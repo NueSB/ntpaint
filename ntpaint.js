@@ -283,7 +283,6 @@ function drawBackbuffer( region )
         region = {x: 0, y: 0, w: canvasWidth, h: canvasHeight};
     }
 
-
     Graphics.setRenderTarget("backbuffer");
     {
         Graphics.save();
@@ -305,9 +304,27 @@ function drawBackbuffer( region )
             Graphics.setRenderTarget("temp0");
             Graphics.clearRect(0,0,canvasWidth,canvasHeight);
 
+
             Graphics.setRenderTarget("temp-layer");
             Graphics.clearRect(0,0,canvasWidth,canvasHeight);
             Graphics.drawImage( g_layers[i].id.toString(), 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight, 0, false );
+            if (bucketAnimation.active)
+            {
+                gl.enable(gl.BLEND);
+                Graphics.setShader("floodFill");
+
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, Graphics.textures[bucketAnimation.textureID].texture);
+
+                let texmatrix = m3.translation(0, 0);
+                texmatrix = m3.multiply(texmatrix, m3.scale(1, 1));
+                gl.uniformMatrix3fv(Graphics.currentShader.vars['uTexMatrix'].location, false, texmatrix);
+                gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+            
+                Graphics.drawRect(0, 0, canvasWidth, canvasHeight, 0);
+                gl.disable(gl.BLEND);
+            }
+
 
             if (drawing && g_currentLayer.id == g_layers[i].id)
             {
@@ -342,15 +359,12 @@ function drawBackbuffer( region )
                         Graphics.drawImage("temp0", 0, 0);
                     
                 }
-
-                Graphics.setRenderTarget("temp0");
-                    drawLayer( "temp-layer", "backbuffer", g_layers[i].opacity );
             } 
-            else
-            {
-                Graphics.setRenderTarget("temp0");
-                    drawLayer( g_layers[i].id, "backbuffer", g_layers[i].opacity);
-            }
+
+
+            Graphics.setRenderTarget("temp0");
+                drawLayer( "temp-layer", "backbuffer", g_layers[i].opacity);
+
 
             Graphics.setRenderTarget("backbuffer");
                 Graphics.drawImage("temp0", 0, 0);
@@ -745,8 +759,11 @@ var bucketAnimation = {
     data: 0,
     imageData: 0,
     iterations: 0,
-    iterationSkipAmt: 1,
     active: false,
+    time: 0,
+    lastTime: 0,
+    maxTime: 500,
+    textureID: "",
 }
 var g_animations = {
 	uiBrushPropPopout: 0,
@@ -1277,7 +1294,9 @@ let debug = false;
     mainDraw();
     drawBackbuffer();
 
-    setCanvasSize(Vec2(512,512));
+    setCanvasSize(Vec2(1024,1024));
+
+    setTimeout(()=>{executeFloodFill(512, 512, Color.red)}, 500);
 
     if (debug)
     {
@@ -1411,8 +1430,6 @@ function updateBrushPreview()
     let data = Graphics.getImageData(0,0,512,512).data;
 
     let imgData = uiBrushPreviewCtx.createImageData(512, 512);
-
-
 
     /*
     const bytesPerPixel = 4; // Assuming RGBA format
@@ -1937,103 +1954,54 @@ function colorDistance(a, b)
            Math.pow(b.b - a.b, 2);
 }
 
-function FFAnimation()
+function FFAnimation(timestamp)
 {
-    //console.log("base")
-    var i = 0;
-    
-    while(bucketAnimation.ops.length > 0)
+    if (bucketAnimation.lastTime == 0)
     {
-        //console.log("process it")
-        let canProcess = true;
-
-        if (bucketAnimation.ops.length > 0)
-        {
-            //console.log("process op")
-            let point = bucketAnimation.ops.shift();
-            const check = function(x,y) { 
-                var i = point.x+x >= 0 && point.x+x < g_currentLayer.width &&
-                        point.y+y >= 0 && point.y+y < g_currentLayer.height;
-                i = i && (bucketAnimation.filledPixels[point.x+x+(point.y+y)*g_currentLayer.width] < 1);
-                //if (i) console.log(`adding! ${point.x+x},${point.y+y}!`)
-                    return i;
-             }
-             const push = function(x,y, id) {
-                if (Math.random() < 0.5)
-                    bucketAnimation.ops.push( {x:point.x+x, y:point.y+y} );
-                else 
-                    bucketAnimation.ops.unshift( {x:point.x+x, y:point.y+y} );
-                bucketAnimation.filledPixels[(point.x+x)+(point.y+y)*g_currentLayer.width] = id + 1;
-             }
-
-            //canProcess = check(0,0);
-
-            let pixel = point.x*4 + point.y*g_currentLayer.width*4;
-
-            if (canProcess)
-            {         
-                let currentColor = {r: bucketAnimation.data[ pixel ], 
-                                    g: bucketAnimation.data[ pixel + 1 ], 
-                                    b: bucketAnimation.data[ pixel + 2 ],
-                                    a: bucketAnimation.data[ pixel + 3 ] };
-        
-                // todo: replace with a tolerance var
-                if (colorDistance(bucketAnimation.srcColor, currentColor) > g_tools[TOOL.BUCKET].tolerance
-                    || Math.abs(bucketAnimation.srcColor.a - currentColor.a) > g_tools[TOOL.BUCKET].tolerance)
-                {
-                    //console.log(`breaking; too high color dist @ ${point.x}, ${point.y}`)
-                    canProcess = false;
-                }
-
-                if (canProcess)
-                {
-                    //console.log(`setting @ ${point.x}, ${point.y}`)
-                    
-                    //bucketAnimation.filledPixels[point.x+point.y*g_currentLayer.width] = 1;
-
-                    let id = bucketAnimation.filledPixels[point.x+point.y*g_currentLayer.width];
-
-                    bucketAnimation.data[ pixel ] = bucketAnimation.replacementColor.r * 255;
-                    bucketAnimation.data[pixel+1] = bucketAnimation.replacementColor.g * 255;
-                    bucketAnimation.data[pixel+2] = bucketAnimation.replacementColor.b * 255;
-                    bucketAnimation.data[pixel+3] = 255;
-        
-                    var j = bucketAnimation.ops.length;
-                    if (check(-1,  0)) push( -1, 0, id);
-                    if (check( 1,  0)) push( 1, 0, id );
-                    if (check( 0, -1)) push( 0, -1, id );
-                    if (check( 0,  1)) push( 0, 1, id );
-                    //console.log( `delta: ${bucketAnimation.ops.length-j}` );
-                }
-            }
-        }
-        i++;
+        bucketAnimation.lastTime = timestamp;
+    } else
+    {
+        bucketAnimation.time += (timestamp - bucketAnimation.lastTime);
+        bucketAnimation.lastTime = timestamp;
     }
 
-    // when starting the fill, we need three things:
-    // - a way to determine the origin position in shaderland
-    // a way to determine "this is where we stop" in shaderland
-    // the solution:
-    // generate a mask texture on the CPU side, and then simply animate it in shader
-    // give each 
 
+    function ease(x) {
+        return 1 - Math.pow(1-x, 5);
+    }
 
-    Graphics.setRenderTarget( g_currentLayer.id );
-    Graphics.putImageData(bucketAnimation.imageData, 0, 0);
-    
+    Graphics.setShader("floodFill");
+    gl.uniform1f(Graphics.currentShader.vars['factor'].location, ease(bucketAnimation.time / bucketAnimation.maxTime));
+
+    // execute func outputs a distance texture and should provide a max value to the shader
+    // shader inputs:
+    // distance texture
+    // time value
+    // max dist (could be kept on CPU side) 
+
+    // we need to draw the currently being filled layer over the main layer
+    // so, inside the drawBackbuffer function
+    // then apply the changes when the animation is finished
+
     drawBackbuffer();
     mainDraw();
-    
-    bucketAnimation.iterations = 0;
-    bucketAnimation.iterationSkipAmt = 100;
-    
-    if (bucketAnimation.ops.length > 0) 
+
+    if (bucketAnimation.time < bucketAnimation.maxTime) 
         window.requestAnimationFrame(FFAnimation);
     else
     {   
+        Graphics.setRenderTarget( g_currentLayer.id );
+        Graphics.putImageData(bucketAnimation.imageData, 0, 0);
         pushUndoHistory();
         setCharacterIcon("nit1");
+
         bucketAnimation.active = false;
+        bucketAnimation.time = 0;
+        bucketAnimation.lastTime = 0;
+        bucketAnimation.iterations = 0;
+
+        drawBackbuffer();
+        mainDraw();
     }
 
 
@@ -2047,26 +2015,150 @@ function executeFloodFill(x, y, color)
     Graphics.setRenderTarget( g_currentLayer.id );
     x = Math.floor(x), y = Math.floor(g_currentLayer.height-y);
     bucketAnimation.active = true;
-    bucketAnimation.filledPixels = new Uint8Array(g_currentLayer.width * g_currentLayer.height);
-    bucketAnimation.imageData = Graphics.getImageData(0, 0, g_currentLayer.width, g_currentLayer.height);
-    bucketAnimation.data =  bucketAnimation.imageData.data;
-    bucketAnimation.iterations = 0;
-    bucketAnimation.iterationSkipAmt = 1;
 
-    let pixel = x*4 + y*g_currentLayer.width*4;
+    // off by one error avoidance. it's an off by one error. remember this
+    let filledPixels = new Uint8Array(canvasWidth*(canvasHeight+1));
+    filledPixels.fill(0);
+
+
+    bucketAnimation.imageData = Graphics.getImageData(0, 0, g_currentLayer.width, g_currentLayer.height);
+    bucketAnimation.iterations = 0;
+    
+    let pixel = (y * g_currentLayer.width + x) * 4;
+
     bucketAnimation.srcColor = {
-         r:  bucketAnimation.data[ pixel ],
-         g:  bucketAnimation.data[ pixel + 1 ],
-         b:  bucketAnimation.data[ pixel + 2],
-         a:  bucketAnimation.data[ pixel + 3 ] };
+         r:  bucketAnimation.imageData.data[ pixel ],
+         g:  bucketAnimation.imageData.data[ pixel + 1 ],
+         b:  bucketAnimation.imageData.data[ pixel + 2],
+         a:  bucketAnimation.imageData.data[ pixel + 3 ] };
+    
+    console.log("SRC COLOR: ", bucketAnimation.srcColor);
 
     bucketAnimation.replacementColor = color;
     //console.log(`getting data @ ${x},${y}: ${JSON.stringify( bucketAnimation.srcColor)}`);
     //document.querySelector('#filltarget').style.backgroundColor = `rgba(${srcColor.r}, ${srcColor.g}, ${srcColor.b}, 255)`;
 
-    bucketAnimation.ops = [ {x: x, y: y} ];
 
-    FFAnimation();
+    const colorMatch = function(x,y)
+    {
+        let index = (y * g_currentLayer.width + x) * 4;
+
+        let c = new Color(
+            bucketAnimation.imageData.data[index],
+            bucketAnimation.imageData.data[index+1],
+            bucketAnimation.imageData.data[index+2],
+            bucketAnimation.imageData.data[index+3]);
+        
+        return colorDistance(bucketAnimation.srcColor, c) < g_tools[TOOL.BUCKET].tolerance
+          && Math.abs(bucketAnimation.srcColor.a - c.a) < g_tools[TOOL.BUCKET].tolerance;
+    }
+
+    const inside = function(x,y)
+    {
+        let index = (y * g_currentLayer.width + x);
+        return !filledPixels[index] && 
+                colorMatch(x,y) && 
+                x >= 0 && 
+                x < canvasWidth && 
+                y >= 0 && 
+                y < canvasHeight; 
+    }
+
+    const colorPixel = function(x,y)
+    {
+        let index = (y * g_currentLayer.width + x) * 4;
+
+        bucketAnimation.imageData.data[ index ] = bucketAnimation.replacementColor.r * 255;
+        bucketAnimation.imageData.data[index+1] = bucketAnimation.replacementColor.g * 255;
+        bucketAnimation.imageData.data[index+2] = bucketAnimation.replacementColor.b * 255;
+        bucketAnimation.imageData.data[index+3] = 255;
+
+        filledPixels[x+y*g_currentLayer.width] = 1;
+    }
+
+    let stack = [ [x,y] ];
+
+    if (!inside(x,y) || (colorDistance(bucketAnimation.srcColor, color) == 0 && Math.abs(bucketAnimation.srcColor.a - c.a) == 0)) 
+        return;
+    
+    const scan = function(lx, rx, y, s)
+    {
+        let spanAdded = false;
+        for (let i = lx; i < rx; i++)
+        {
+            if (!inside(i, y))
+            {
+                spanAdded = false;
+            } else if (!spanAdded)
+            {
+                s.push([i,y]);
+                spanAdded = true;
+            }
+        }
+    }
+
+    while (stack.length)
+    {
+        let pos = stack.pop();
+        let xx = pos[0]; 
+        let yy = pos[1];
+        
+        let lx = xx;
+        while(inside(lx,yy))
+        {
+            colorPixel(lx, yy);
+            lx -= 1;
+        }
+        xx += 1;
+        while(inside(xx,yy))
+        {
+            colorPixel(xx, yy);
+            xx += 1;
+        }
+
+        scan(lx, xx-1, yy+1, stack);
+        scan(lx, xx-1, yy-1, stack);
+    }
+
+    if (bucketAnimation.textureID == "")
+    {
+        bucketAnimation.textureID = Math.random().toString(36).substring(2);
+        let texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8,
+                      canvasWidth, canvasHeight, 0,
+                      gl.RED, gl.UNSIGNED_BYTE, null);
+
+        
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        Graphics.textures[bucketAnimation.textureID] = 
+        {
+            width: canvasWidth,
+            height: canvasHeight,
+            texture: texture
+        }
+    }
+
+    Graphics.setShader("floodFill");
+    gl.uniform1i(Graphics.currentShader.vars['image'].location, 0);
+    gl.uniform1f(Graphics.currentShader.vars['factor'].location, bucketAnimation.time / bucketAnimation.maxTime);
+    gl.uniform2f(Graphics.currentShader.vars['sourcePosition'].location, x,y);
+    gl.uniform3f(Graphics.currentShader.vars['color'].location, 
+        bucketAnimation.replacementColor.r, 
+        bucketAnimation.replacementColor.g, 
+        bucketAnimation.replacementColor.b);
+
+    gl.bindTexture(gl.TEXTURE_2D, Graphics.textures[bucketAnimation.textureID].texture);
+
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8,
+        canvasWidth, canvasHeight, 0,
+        gl.RED, gl.UNSIGNED_BYTE, filledPixels);
+
+    
+    window.requestAnimationFrame(FFAnimation);
 }
 
 function eyedrop(x,y, mouseIndex = 0)
@@ -2739,6 +2831,38 @@ function setCanvasSize(size, offset, pushUndo = false)
     if (canvasHeight < oldHeight)
     {
         cropSize.y = canvasHeight;
+    }
+
+    // bucket fill
+    {
+        if (bucketAnimation.textureID == "")
+        {
+            bucketAnimation.textureID = Math.random().toString(36).substring(2);
+        }
+        else 
+            gl.deleteTexture(Graphics.textures[bucketAnimation.textureID].texture);
+        
+        let texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8,
+                    canvasWidth, canvasHeight, 0,
+                    gl.RED, gl.UNSIGNED_BYTE, null);
+
+        
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+        Graphics.textures[bucketAnimation.textureID] = 
+        {
+            width: canvasWidth,
+            height: canvasHeight,
+            texture: texture
+        }
+
+        Graphics.setShader("floodFill");
+        gl.uniform2f(Graphics.currentShader.vars['canvasResolution'].location, canvasWidth, canvasHeight)
     }
 
     for (let i = 0; i < g_layers.length; i++)
