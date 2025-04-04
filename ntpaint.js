@@ -1228,11 +1228,14 @@ let debug = false;
 
     document.querySelector(".property-click-hitbox").addEventListener("click", (e) =>
     {
+        if (debug) console.log("property click")
 		if (!g_BrushTrayVisible)
 		{
+            if (debug) console.log("\tbrushtray not visible, swapping to tray mode...")
             document.querySelector(".menu-click-hitbox").style.pointerEvents = "none";
             document.querySelector(".property-click-hitbox").style.pointerEvents = "none";
 			clearTimeout(g_animations.uiBrushPropPopout);
+            clearTimeout(g_animations.uiBrushIconSwap);
             uiMenuProps.style.display = "none";
             uiBrushProps.style.display = "block";
             g_MenuTrayVisible = false;
@@ -1243,12 +1246,13 @@ let debug = false;
             setCharacterIcon("nit_think1");
             uiToolIconSpin.cancel();
             uiToolIconSpin.play();
-            setTimeout(()=>{ 
+            g_animations.uiBrushIconSwap = setTimeout(()=>{ 
+                if (debug) console.log("\t\t| brushpreview icon swap executed. icon display is now none");
                 uiBrushPreview.style.display = g_currentTool == TOOL.BRUSH || g_currentTool == TOOL.PENCIL ? "block" : "none"; 
                 uiToolIcon.style.display = "none"; 
             }, 150);
             updateBrushPreview();
-		}        
+		}
     });
 
     document.querySelector(".menu-click-hitbox").addEventListener("click", (e) =>
@@ -1258,6 +1262,7 @@ let debug = false;
             document.querySelector(".menu-click-hitbox").style.pointerEvents = "none";
             document.querySelector(".property-click-hitbox").style.pointerEvents = "none";
             clearTimeout(g_animations.uiBrushPropPopout);
+            clearTimeout(g_animations.uiBrushIconSwap);
             uiMenuProps.style.display = "block";
             uiBrushProps.style.display = "none";
             g_MenuTrayVisible = true;
@@ -1269,19 +1274,27 @@ let debug = false;
         }        
     });
 
-    document.querySelector(".brush-toolbar").addEventListener("pointerleave", (e) =>
+    document.querySelector(".brush-toolbar").addEventListener("mouseleave", (e) =>
     {
+        
+        console.log("pointer out brushtoolbar");
         if (g_BrushTrayVisible)
         {
+            if (debug) console.log("\tbrush tray is visible, starting interval to swap icons");
             uiToolIconSpin.cancel();
             uiToolIconSpin.play();
-            setTimeout(()=>{ uiBrushPreview.style.display = "none"; uiToolIcon.style.display = "block"; }, 120);
+            g_animations.uiBrushIconSwap = setTimeout(()=>{ 
+                if (debug) console.log("\t\t| swapping ui icons. tool icon is now visible"); 
+                uiBrushPreview.style.display = "none"; 
+                uiToolIcon.style.display = "block"; 
+            }, 150);
         }
         document.querySelector(".menu-click-hitbox").style.pointerEvents = "auto";
         document.querySelector(".property-click-hitbox").style.pointerEvents = "auto";
         g_BrushTrayVisible = false;
         g_MenuTrayVisible = false;
         g_animations.uiBrushPropPopout = setTimeout(()=> { 
+            if (debug) console.log("\t\t| brush properties now hidden");
             uiBrushToolbar.style.display = "none";
         }, 50 );
         uiBrushToolbar.style.opacity = 0;
