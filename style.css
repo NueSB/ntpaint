@@ -170,7 +170,7 @@ body {
     background-color: black;
     color: white;
     opacity: 0%;
-    animation: toast 2s forwards;
+    transition: opacity 2s cubic-bezier(.74,.01,1,.33);
 }
 
 .layercontainer {

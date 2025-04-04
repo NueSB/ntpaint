@@ -34,28 +34,7 @@ var canvas = document.querySelector("#c"),
             duration: 1000,
             easing: "cubic-bezier(0,1.31,.76,1.02)"
         }
-    ),
-    uiToastAnimation = uiToast.animate(
-        [
-            {opacity: 1},
-            {opacity: 0, offset: 0.5},
-            {opacity: 0}
-        ],
-        {
-            duration: 2000,
-            easing: "linear"
-        }
-    ),
-	uiBrushPropPopout = uiBrushProps.animate(
-		[
-			{opacity: 0},
-			{opacity: 1},
-		],
-		{
-			duration: 100,
-			easing: "ease-in-out",
-		}
-	);
+    );
 //
 var canvasWidth = 1024;
 var canvasHeight = 1024;
@@ -82,6 +61,11 @@ const TOOL = {
     TRANSFORM: 5,
     LASSO: 6
 };
+
+const BRUSHPROPS = {
+    SQUARE: 1,
+    TEXTURED: 2,
+}
 
 class Layer {
     name = "X";
@@ -1358,9 +1342,14 @@ let debug = false;
 
 function displayToast(message)
 {
+    uiToast.style.transitionDuration = '0s';
+    uiToast.style.opacity = "100%";
+
     uiToast.innerHTML = message;
-    uiToastAnimation.cancel();
-    uiToastAnimation.play();
+    uiToast.style.transitionDuration = '';
+    uiToast.style.opacity = "0%";
+    //uiToastAnimation.cancel();
+    //uiToastAnimation.play();
 }
 
 function rescaleViewCanvas()
@@ -1821,6 +1810,9 @@ function drawLine(start,end,brushSize,spacing)
     let brushDensity = g_tools[g_currentTool].density || 1;
 
     Graphics.globalAlpha = 1;
+
+    Graphics.setShader("baseColor_batch");
+    gl.uniform1i(Graphics.currentShader.vars["properties"].location, 2)
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
