@@ -2135,9 +2135,10 @@ function executeFloodFill(x, y, color)
         scan(lx, xx-1, yy-1, stack);
     }
 
-    /*
+    
     if (bucketAnimation.textureID == "")
-    {
+    {       
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
         bucketAnimation.textureID = Math.random().toString(36).substring(2);
         let texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -2150,13 +2151,16 @@ function executeFloodFill(x, y, color)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
         Graphics.textures[bucketAnimation.textureID] = 
         {
             width: canvasWidth,
             height: canvasHeight,
             texture: texture
         }
-    }*/
+    }
+
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
 
     Graphics.setShader("floodFill");
     gl.uniform1i(Graphics.currentShader.vars['image'].location, 0);
@@ -2175,7 +2179,7 @@ function executeFloodFill(x, y, color)
         canvasWidth, canvasHeight, 0,
         gl.RED, gl.UNSIGNED_BYTE, filledPixels);
 
-    
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     window.requestAnimationFrame(FFAnimation);
 }
 
