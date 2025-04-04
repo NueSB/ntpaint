@@ -373,7 +373,7 @@ function drawBackbuffer( region )
     Graphics.setRenderTarget(null);
 }
 
-function drawResizeHandles(region, handleSize)
+function drawResizeHandles(region, handleSize, outline = false)
 {
     let topleft = Vec2(region.x, region.y);
     let size = handleSize/g_viewScale;
@@ -406,7 +406,10 @@ function drawResizeHandles(region, handleSize)
 
     function centeredBox(x,y,size)
     {
-        Graphics.lineRect(x - size / 2, y - size/2, size, size);
+        if (outline) 
+            Graphics.fillRect(x - size / 2, y - size/2, size, size);
+        else
+            Graphics.lineRect(x - size / 2, y - size/2, size, size);
     }
 
     centeredBox(region.x, 
@@ -511,12 +514,17 @@ function mainDraw(customClear)
     }
 
     let canvasSizeHandles = 6;
+    let alpha = chebyshev(lastCoords, Vec2(canvasWidth/2, canvasHeight/2)) / canvasWidth * 2 ;
+    alpha = Math.min(alpha, 1);
+    Graphics.drawColor = new Color(0,0,alpha);
+
     drawResizeHandles( 
         rect2box(
             g_canvasNewBounds.start.sub(Vec2(canvasSizeHandles/2,canvasSizeHandles/2)), 
             g_canvasNewBounds.end.add(Vec2(canvasSizeHandles, canvasSizeHandles))
         ),
-        canvasSizeHandles 
+        canvasSizeHandles,
+        true
     );
 
     Graphics.scale( 1/g_viewScale, 1/g_viewScale );
@@ -1052,6 +1060,23 @@ var g_actionKeys = {
         event: "press",
         func: setTool,
         args: [TOOL.LASSO]
+    },
+    selectAll: {
+        key: "A",
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        event: "press",
+        func: function() { 
+            console.log("test");
+            let transform = g_tools[TOOL.TRANSFORM];
+            transform.regionActive = true;
+            transform.startPoint = Vec2(0,0);
+            transform.endPoint = Vec2(canvasWidth, canvasHeight);
+            transform.origSize = Vec2(canvasWidth, canvasHeight);
+            transform.drawing = false;
+        },
+        args: []
     }
 }
 var g_drawQueue = [];
@@ -2940,7 +2965,7 @@ function exportCopy(save)
 {
     displayToast("exporting...");
     drawBackbuffer();
-    Graphics.setRenderTarget( "backbuffer" );
+    Graphics.setRenderTarget( save ? "backbuffer" : g_currentLayer.id );
     let region = rect2box(
             g_tools[TOOL.TRANSFORM].startPoint,
             g_tools[TOOL.TRANSFORM].endPoint
