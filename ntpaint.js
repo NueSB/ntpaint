@@ -1077,6 +1077,7 @@ var g_actionKeys = {
         altKey: false,
         event: "press",
         func: function() { 
+            setTool(TOOL.TRANSFORM);
             let transform = g_tools[TOOL.TRANSFORM];
             transform.regionActive = true;
             transform.startPoint = Vec2(0,0);
