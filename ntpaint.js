@@ -981,6 +981,15 @@ var g_actionKeys = {
         event: "press",
         func: exportCopy,
     },
+    copyAll: {
+        key: "C",
+        ctrlKey: true,
+        shiftKey: true,
+        altKey: false,
+        event: "press",
+        func: exportCopy,
+        args: [true, false],
+    },
     save: {
         key: "S",
         ctrlKey: true,
@@ -988,7 +997,7 @@ var g_actionKeys = {
         altKey: false,
         event: "press",
         func: exportCopy,
-        args: [true]
+        args: [true, true]
     },
     paste: {
         key: "V",
@@ -1068,7 +1077,6 @@ var g_actionKeys = {
         altKey: false,
         event: "press",
         func: function() { 
-            console.log("test");
             let transform = g_tools[TOOL.TRANSFORM];
             transform.regionActive = true;
             transform.startPoint = Vec2(0,0);
@@ -1076,7 +1084,6 @@ var g_actionKeys = {
             transform.origSize = Vec2(canvasWidth, canvasHeight);
             transform.drawing = false;
         },
-        args: []
     }
 }
 var g_drawQueue = [];
@@ -2961,11 +2968,11 @@ function setCanvasSize(size, offset, pushUndo = false)
     drawBackbuffer();
 }
 
-function exportCopy(save)
+function exportCopy(merge, save)
 {
     displayToast("exporting...");
     drawBackbuffer();
-    Graphics.setRenderTarget( save ? "backbuffer" : g_currentLayer.id );
+    Graphics.setRenderTarget( merge ? "backbuffer" : g_currentLayer.id );
     let region = rect2box(
             g_tools[TOOL.TRANSFORM].startPoint,
             g_tools[TOOL.TRANSFORM].endPoint
