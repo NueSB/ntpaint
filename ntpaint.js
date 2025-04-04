@@ -466,7 +466,10 @@ function mainDraw(customClear)
     if (g_tools[g_currentTool].size)
     {
         size = g_tools[g_currentTool].size;
-        Graphics.lineRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );
+        if (g_tools[g_currentTool].propFlags && g_tools[g_currentTool].propFlags & BRUSHPROPS.SQUARE)
+             Graphics.lineRect( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size );
+        else 
+            Graphics.lineCircle( lastCoords.x - size / 2, lastCoords.y - size / 2, size, size  );
     }
 
     switch(g_currentTool) // cursors, whenever that happens
@@ -547,15 +550,35 @@ function setTool(i)
             let prop = tool.properties[j];
             let propElement = uiBrushPropTemplate.cloneNode(true);
             propElement.style = "";
+            let inputElement = propElement.querySelector("input");
             propElement.querySelector("#propname").innerHTML = prop.displayName;
             propElement.querySelector("input").addEventListener("input", e=>  { 
                 prop.onChange(e); 
                 window.requestAnimationFrame(updateBrushPreview);
             });
             // TODO: switch for input types (checkbox, range, etc)
-            propElement.querySelector("input").value = tool[tool.properties[j].name]
-                                                       * (tool.properties[j].stop - tool.properties[j].start) 
-                                                       + tool.properties[j].start;
+            let value = 0;
+
+            switch( prop.type )
+            {
+                case "range":
+                    value = tool[tool.properties[j].name]
+                    * (tool.properties[j].stop - tool.properties[j].start) 
+                    + tool.properties[j].start;
+                    inputElement.value = value;
+                    break;
+
+                case "checkbox":
+                    value = prop.value;
+                    propElement.querySelector("input").type = "checkbox";
+                    inputElement.checked = value;
+                    break;
+
+                default:
+                    console.error(`Unknown brush property type \'${prop.value}\'`)
+                    continue;
+            }
+
             uiBrushProps.appendChild(propElement);
         }
     }
@@ -768,10 +791,12 @@ var g_tools = [
         size: 16,
         opacity: 1,
         density: 1,
+        propFlags: 1,
         properties: [
             {
                 name: "opacity",
                 displayName: "opacity",
+                type: "range",
                 start: 0,
                 stop: 100,
                 onChange: function(e)
@@ -782,13 +807,27 @@ var g_tools = [
             {
                 name: "density",
                 displayName: "density",
+                type: "range",
                 start: 1,
                 stop: 100,
                 onChange: function(e)
                 {
                     this.parent.density = Math.pow(e.target.value / this.stop, 3);
                 }
-            }
+            },
+            {
+                name: "square",
+                displayName: "square",
+                type: "checkbox",
+                value: true,
+                onChange: function(e)
+                {
+                    if (e.target.checked)
+                        this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SQUARE;
+                    else
+                        this.parent.propFlags = this.parent.propFlags & ~BRUSHPROPS.SQUARE;
+                }
+            },
         ]
 
     },
@@ -800,6 +839,7 @@ var g_tools = [
             {
                 name: "opacity",
                 displayName: "opacity",
+                type: "range",
                 start: 0,
                 stop: 100,
                 onChange: function(e)
@@ -819,10 +859,12 @@ var g_tools = [
         size: 16,
         opacity: 1,
         density: 1,
+        propFlags: 0,
         properties: [
             {
                 name: "opacity",
                 displayName: "opacity",
+                type: "range",
                 start: 0,
                 stop: 100,
                 onChange: function(e)
@@ -833,13 +875,27 @@ var g_tools = [
             {
                 name: "density",
                 displayName: "density",
+                type: "range",
                 start: 1,
                 stop: 100,
                 onChange: function(e)
                 {
                     this.parent.density = Math.pow(e.target.value / this.stop, 3);
                 }
-            }
+            },
+            {
+                name: "square",
+                displayName: "square",
+                type: "checkbox",
+                value: false,
+                onChange: function(e)
+                {
+                    if (e.target.checked)
+                        this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SQUARE;
+                    else
+                        this.parent.propFlags = this.parent.propFlags & ~BRUSHPROPS.SQUARE;
+                }
+            },
         ]
     },
     {
@@ -850,10 +906,12 @@ var g_tools = [
         texture: undefined,
         opacity: 1,
         density: 1,
+        propFlags: 1,
         properties: [
             {
                 name: "opacity",
                 displayName: "opacity",
+                type: "range",
                 start: 0,
                 stop: 100,
                 onChange: function(e)
@@ -864,13 +922,27 @@ var g_tools = [
             {
                 name: "density",
                 displayName: "density",
+                type: "range",
                 start: 1,
                 stop: 100,
                 onChange: function(e)
                 {
                     this.parent.density = Math.pow(e.target.value / this.stop, 3);
                 }
-            }
+            },
+            {
+                name: "square",
+                displayName: "square",
+                type: "checkbox",
+                value: true,
+                onChange: function(e)
+                {
+                    if (e.target.checked)
+                        this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SQUARE;
+                    else
+                        this.parent.propFlags = this.parent.propFlags & ~BRUSHPROPS.SQUARE;
+                }
+            },
         ]
     },
     {
@@ -1813,7 +1885,7 @@ function drawLine(start,end,brushSize,spacing)
     Graphics.globalAlpha = 1;
 
     Graphics.setShader("baseColor_batch");
-    gl.uniform1i(Graphics.currentShader.vars["properties"].location, 2)
+    gl.uniform1i(Graphics.currentShader.vars["properties"].location, g_tools[g_currentTool].propFlags || 0);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
