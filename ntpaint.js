@@ -310,7 +310,6 @@ function drawBackbuffer( region )
             Graphics.drawImage( g_layers[i].id.toString(), 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight, 0, false );
             if (bucketAnimation.active)
             {
-                gl.enable(gl.BLEND);
                 Graphics.setShader("floodFill");
 
                 gl.activeTexture(gl.TEXTURE0);
@@ -322,7 +321,6 @@ function drawBackbuffer( region )
                 gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
             
                 Graphics.drawRect(0, 0, canvasWidth, canvasHeight, 0);
-                gl.disable(gl.BLEND);
             }
 
 
@@ -2064,6 +2062,10 @@ function executeFloodFill(x, y, color)
             bucketAnimation.imageData.data[index+2],
             bucketAnimation.imageData.data[index+3]);
         
+        if (c.a == 0)
+        {
+            return Math.abs(bucketAnimation.srcColor.a - c.a) < g_tools[TOOL.BUCKET].tolerance;
+        }
         return colorDistance(bucketAnimation.srcColor, c) < g_tools[TOOL.BUCKET].tolerance
           && Math.abs(bucketAnimation.srcColor.a - c.a) < g_tools[TOOL.BUCKET].tolerance;
     }
@@ -2171,8 +2173,6 @@ function executeFloodFill(x, y, color)
         bucketAnimation.replacementColor.g, 
         bucketAnimation.replacementColor.b);
     
-    console.log(bucketAnimation.replacementColor);
-
     gl.bindTexture(gl.TEXTURE_2D, Graphics.textures[bucketAnimation.textureID].texture);
 
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8,
