@@ -1343,13 +1343,14 @@ let debug = false;
 function displayToast(message)
 {
     uiToast.style.transitionDuration = '0s';
-    uiToast.style.opacity = "100%";
+    uiToast.style.opacity = 1;
 
     uiToast.innerHTML = message;
+
+    uiToast.offsetHeight; // force css change so the property is changed
+
     uiToast.style.transitionDuration = '';
-    uiToast.style.opacity = "0%";
-    //uiToastAnimation.cancel();
-    //uiToastAnimation.play();
+    uiToast.style.opacity = 0;
 }
 
 function rescaleViewCanvas()

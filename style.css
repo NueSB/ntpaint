@@ -169,8 +169,8 @@ body {
     font-family: "MS UI Gothic", "monospace";
     background-color: black;
     color: white;
-    opacity: 0%;
-    transition: opacity 2s cubic-bezier(.74,.01,1,.33);
+    opacity: 0;
+    transition: opacity 2s;
 }
 
 .layercontainer {
@@ -284,20 +284,6 @@ body {
 
 .layer-buttons {
     margin-left: 50%;
-}
-
-.toast {
-    position: fixed;
-    margin: auto;
-    width: 10%;
-    text-align: center;
-    padding: 10px;
-    background-color: black;
-    color: white;
-    opacity: 0%;
-    animation: toast 2s forwards;
-    pointer-events: none;
-    touch-action: none;
 }
 
 @keyframes charbob {
