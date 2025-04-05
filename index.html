@@ -41,7 +41,7 @@
         </div>
         <div class="ui-side-toolbar">
             <div class="brush-toolbar" style="display:none;">
-                <div class="brush-property template noselect" style="display:none">
+                <div class="brush-property template noselect" style="display:none" draggable="false">
                     <span id="propname">inner peace...</span>
                     <input type="range" min="0" max="100" value="100"/>
                 </div>
@@ -59,9 +59,9 @@
             <div class="overlaychar-container">
                 <div class="overlaychar-transform1">
                     <div class="overlaychar">
-                        <img class="menu-click-hitbox clickable noselect" src="images/nit1.png" id="overlaychar-img"/>
+                        <img class="menu-click-hitbox clickable noselect" src="images/nit1.png" id="overlaychar-img" draggable="false"/>
                         <div class="overlaytool">
-                            <img class="clickable property-click-hitbox" src="images/brush.png"/>
+                            <img class="clickable property-click-hitbox" src="images/brush.png" draggable="false"/>
                             <canvas id="brush-preview" width="512" height="512" style="display:none; pointer-events:none;"></canvas>
                         </div>
                     </div>

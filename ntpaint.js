@@ -65,6 +65,7 @@ const TOOL = {
 const BRUSHPROPS = {
     SQUARE: 1,
     TEXTURED: 2,
+    SOFT: 4,
 }
 
 class Layer {
@@ -749,10 +750,6 @@ function isCanvasBlank(renderTarget)
     return !pixelBuffer.some(color => color !== 0);
 }
 
-var VIEWSTATES = Object.freeze({
-    NORMAL: 0,
-    CANVAS_RESIZE: 1
-})
 
 var g_viewTransform = Vec2(512,512);
 var g_isResizingCanvas = false;
@@ -828,6 +825,19 @@ var g_tools = [
                         this.parent.propFlags = this.parent.propFlags & ~BRUSHPROPS.SQUARE;
                 }
             },
+            {
+                name: "soft",
+                displayName: "soft",
+                type: "checkbox",
+                value: false,
+                onChange: function(e)
+                {
+                    if (e.target.checked)
+                        this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SOFT;
+                    else
+                        this.parent.propFlags = this.parent.propFlags & ~BRUSHPROPS.SOFT;
+                }
+            },
         ]
 
     },
@@ -896,6 +906,19 @@ var g_tools = [
                         this.parent.propFlags = this.parent.propFlags & ~BRUSHPROPS.SQUARE;
                 }
             },
+            {
+                name: "soft",
+                displayName: "soft",
+                type: "checkbox",
+                value: false,
+                onChange: function(e)
+                {
+                    if (e.target.checked)
+                        this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SOFT;
+                    else
+                        this.parent.propFlags = this.parent.propFlags & ~BRUSHPROPS.SOFT;
+                }
+            },
         ]
     },
     {
@@ -941,6 +964,19 @@ var g_tools = [
                         this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SQUARE;
                     else
                         this.parent.propFlags = this.parent.propFlags & ~BRUSHPROPS.SQUARE;
+                }
+            },
+            {
+                name: "soft",
+                displayName: "soft",
+                type: "checkbox",
+                value: false,
+                onChange: function(e)
+                {
+                    if (e.target.checked)
+                        this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SOFT;
+                    else
+                        this.parent.propFlags = this.parent.propFlags & ~BRUSHPROPS.SOFT;
                 }
             },
         ]
