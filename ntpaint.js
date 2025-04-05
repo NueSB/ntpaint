@@ -756,6 +756,7 @@ var g_isResizingCanvas = false;
 var g_canvasResizeType = "move";
 var g_canvasNewBounds = {start:Vec2(0,0), end:Vec2(canvasWidth, canvasHeight)};
 var g_viewScale = 0.25;
+var g_zoomLevel = 0;
 var g_BrushSize = 3;
 var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(1, 1, 1);
@@ -1439,6 +1440,9 @@ let debug = false;
     drawBackbuffer();
 
     setCanvasSize(Vec2(1024,1024));
+    g_zoomLevel = 22;
+    g_viewScale = 0.5;
+    g_viewTransform = Vec2(512,512).add(Vec2(0,-256));
 
     if (debug)
     {
@@ -1579,20 +1583,9 @@ function updateBrushPreview()
 
     let imgData = uiBrushPreviewCtx.createImageData(512, 512);
 
-    /*
-    const bytesPerPixel = 4; // Assuming RGBA format
-    const rowSize = copyRegion.w * bytesPerPixel;
-    for (let row = 0; row < copyRegion.h; row++) {
-        const srcStart = row * rowSize;
-        const dstStart = (copyRegion.h - row - 1) * rowSize;
-
-        // Copy the row to its flipped position
-        imgData.data.set(data.subarray(srcStart, srcStart + rowSize), dstStart);
-    }
-    */
     imgData.data.set(data)
     uiBrushPreviewCtx.putImageData(imgData, 0,0);
-    }
+}
 
 async function pasteImage(position) 
 {
@@ -3154,15 +3147,6 @@ function exportCopy(merge, save)
     }, "image/png");
     displayToast(save ? "saved!" : "copied!");
 }
-/*
-canvas.addEventListener("touchstart", e => { drawStart(e); })
-window.addEventListener("touchmove", e => { drawMove(e); });
-window.addEventListener("touchend", e => { drawEnd(e); });
-canvas.addEventListener("touchcancel", e => drawEnd(e))
-canvas.addEventListener("mousedown", e => drawStart(e));        
-canvas.addEventListener("mousemove", e => drawMove(e) );
-canvas.addEventListener("mouseup", e => { drawEnd(e) });
-*/
 
 canvas.addEventListener("pointerdown", e => { 
     drawStart(e) 
@@ -3188,8 +3172,9 @@ uiContainer.addEventListener( "wheel", e=> {
 
     let scale = g_viewScale;
 
-    g_viewScale = Math.max(Math.min( g_viewScale - Math.sign(e.deltaY) * 0.1, 4*4), 0.01);
-    //g_viewTransform = g_viewTransform.sub( Vec2( 0, 0 ).scale( g_viewScale) );
+    g_zoomLevel = clamp( g_zoomLevel - Math.sign(e.deltaY), 1, 35 );
+    g_viewScale = g_zoomLevel == 25 ? 1 : Math.pow(1.2, g_zoomLevel) / 100;
+    displayToast(`zoom: ${Math.floor(g_viewScale*100)}%`);
     if (scale != g_viewScale)
         lastCoords = lastCoords_raw.sub( g_viewTransform ).scale( 1/g_viewScale );
 
