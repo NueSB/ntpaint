@@ -1184,6 +1184,10 @@ var g_drawBlank = false; // draw "blanking period"; space between frames
 var g_brushSpacing = 2;
 var g_BrushTrayVisible = false;
 var g_MenuTrayVisible = false;
+var g_menuCooldown = { // preventing one from instantly opening and closing the menu properties
+    lastTimestamp: 0,
+    cooldown: 100
+};
 var g_isLoaded = false;
 var g_isDragging = false;
 var g_charAnimation = undefined;
@@ -1288,6 +1292,7 @@ let debug = false;
                 uiToolIcon.style.display = "none"; 
             }, 150);
             updateBrushPreview();
+            g_menuCooldown.lastTimestamp = Date.now();
 		}
     });
 
@@ -1307,12 +1312,15 @@ let debug = false;
             uiBrushToolbar.style.opacity = 1;
             uiBrushToolbar.style.left = "66%";
             setCharacterIcon("nit_think1");
-        }        
+            g_menuCooldown.lastTimestamp = Date.now();
+        }
     });
 
     document.querySelector(".brush-toolbar").addEventListener("mouseleave", (e) =>
     {
-        
+        if (Date.now() - g_menuCooldown.cooldown <= g_menuCooldown.lastTimestamp)
+            return;
+
         console.log("pointer out brushtoolbar");
         if (g_BrushTrayVisible)
         {
