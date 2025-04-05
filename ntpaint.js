@@ -864,6 +864,16 @@ var g_tools = [
     {
         name: "drp",
         size: 1,
+        global: false,
+        properties: [
+            {
+                name: "global",
+                displayName: "sample whole image",
+                type: "checkbox",
+                value: false,
+                onChange: function(e) { this.parent.global = e.target.checked; }
+            },
+        ]
     },
     {
         name: "ers",
@@ -2336,9 +2346,20 @@ function eyedrop(x,y, mouseIndex = 0)
     // texture is flipped in memory, flip sample pos
     x = Math.floor(x), y = Math.floor(g_currentLayer.height-y);
 
-    let pixel = x*4 + y*g_currentLayer.width*4;
-    Graphics.setRenderTarget( g_currentLayer.id ); 
-    let data = Graphics.getImageData(0,0,g_currentLayer.width, g_currentLayer.height).data;
+    let width = g_currentLayer.width;
+    let height = g_currentLayer.height;
+    let tex = g_currentLayer.id;
+
+    if (g_tools[TOOL.EYEDROPPER].global)
+    {
+        width = canvasWidth;
+        height = canvasHeight;
+        tex = "backbuffer";
+    }
+    let pixel = x*4 + y*width*4;
+
+    Graphics.setRenderTarget( tex ); 
+    let data = Graphics.getImageData(0, 0, width, height).data;
     let srcColor = new Color(
         data[ pixel ]/255,
         data[ pixel + 1 ]/255,
