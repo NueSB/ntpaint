@@ -356,8 +356,29 @@ function drawBackbuffer( region )
                 Graphics.drawImage("temp0", 0, 0);
             
         }        
-        Graphics.restore();
     }
+
+    // post-processing
+    Graphics.setRenderTarget("temp0");
+    {
+        Graphics.setShader("texture_dither");
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, Graphics.textures["backbuffer"].texture);
+        gl.uniform1i(Graphics.currentShader.vars['uTexture'].location, 0);
+        gl.uniform1f(Graphics.currentShader.vars["snapAmt"].location, 32.0 );
+
+    
+        let texmatrix = m3.translation(0, 0);
+        texmatrix = m3.multiply(texmatrix, m3.scale(1, 1));
+        gl.uniformMatrix3fv(Graphics.currentShader.vars['uTexMatrix'].location, false, texmatrix);
+        gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+
+        Graphics.drawRect(0, 0, canvasWidth, canvasHeight, 0);
+        
+        Graphics.setRenderTarget("backbuffer");
+            Graphics.drawImage("temp0", 0, 0);
+    }
+    Graphics.restore();
     Graphics.setRenderTarget(null);
 }
 
