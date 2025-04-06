@@ -214,10 +214,7 @@ function main()
 {
     g_drawBlank = false;
 
-    for (var i = 0; i < g_drawQueue.length; i++)
-    {
-        mainDraw( g_drawQueue[i] );
-    }
+    mainDraw();
 
     g_drawQueue = [];
     g_drawBlank = true;
@@ -249,7 +246,13 @@ function drawLayer(layerTop, layerBottom, topalpha = 1, blendMode = 0)
 
     gl.uniform1f(Graphics.currentShader.vars["topAlpha"].location, topalpha);
     gl.uniform1i(Graphics.currentShader.vars["layerOperation"].location, blendMode);
-    
+
+    if (Graphics.textures["lut"])
+    {
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, Graphics.textures["lut"].texture);
+        gl.uniform1i(Graphics.currentShader.vars["lut"].location, 2);   
+    }
     let texmatrix = m3.translation(0, 0);
     texmatrix = m3.multiply(texmatrix, m3.scale(1, 1));
     gl.uniformMatrix3fv(Graphics.currentShader.vars['uTexMatrix'].location, false, texmatrix);
@@ -762,6 +765,16 @@ var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(1, 1, 1);
 var g_currentColor = g_MainColor;
 var g_currentTool = 0;
+var g_textures = {
+    /*
+    "lut": {
+        loaded: false,
+        texture: null,
+        imgElement: null,
+        url: "images/lut.png"
+    }
+    */
+};
 var bucketAnimation = {
     srcColor: 0,
     replacementColor: 0,
@@ -1454,6 +1467,14 @@ let debug = false;
     g_viewScale = 0.5;
     g_viewTransform = Vec2(512,512).add(Vec2(0,-256));
 
+    for(let i = 0; i < Object.keys(g_textures).length; i++)
+    {
+        let id = Object.keys(g_textures)[i];
+        let textureObj = g_textures[id];
+
+        Graphics.loadTexture(textureObj.url, id);
+    }
+
     if (debug)
     {
         /* sample "line draw" */
@@ -1929,7 +1950,7 @@ function drawLine(start,end,brushSize,spacing)
 {
     gl.disable(gl.BLEND);
     let dist = distance( start, end );
-    spacing = 1;
+    spacing = g_tools[g_currentTool].propFlags & BRUSHPROPS.SOFT ? dist / 2 : 1;
     let step = Vec2( end.x - start.x, end.y - start.y )
                             .normalize()
                             .scale( spacing );
