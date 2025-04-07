@@ -786,6 +786,7 @@ var g_MainColor = new Color(0, 0, 0);
 var g_SubColor = new Color(1, 1, 1);
 var g_currentColor = g_MainColor;
 var g_currentTool = 0;
+var g_currentLineDist = 0;
 var g_textures = {
     /*
     "lut": {
@@ -1971,7 +1972,7 @@ function drawLine(start,end,brushSize,spacing)
 {
     gl.disable(gl.BLEND);
     let dist = distance( start, end );
-    spacing = g_tools[g_currentTool].propFlags & BRUSHPROPS.SOFT ? dist / 2 : 1;
+    spacing = g_tools[g_currentTool].propFlags & BRUSHPROPS.SOFT ? 1 : 1;
     let step = Vec2( end.x - start.x, end.y - start.y )
                             .normalize()
                             .scale( spacing );
@@ -1991,9 +1992,10 @@ function drawLine(start,end,brushSize,spacing)
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
+    
     for( var i = 0; i <= Math.floor(dist / spacing); i++)
     {
+
         if (brushSize == 1)
         {
             let current = Vec2(
@@ -2053,6 +2055,7 @@ function drawLine(start,end,brushSize,spacing)
         pos.x += step.x;
         pos.y += step.y;
     }
+
     Graphics.setRenderTarget("temp-line");
     {
         gl.blendEquation(gl.FUNC_ADD);
@@ -2642,6 +2645,7 @@ function drawStart(e)
             }
         
         default:
+            g_currentLineDist = 0;
             drawing = true;
             Graphics.setRenderTarget("temp-line");
             Graphics.clearRect(0,0,canvasWidth, canvasHeight);
@@ -2889,7 +2893,7 @@ function drawEnd(e)
             Graphics.setRenderTarget(g_currentLayer.id);
             drawLassoSelection();
         }
-        else drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
+        //else drawLine(lastCoords, pos, g_BrushSize, g_brushSpacing);
         
 
         gl.disable(gl.BLEND);
