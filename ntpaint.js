@@ -855,6 +855,7 @@ var g_tools = [
                 value: true,
                 onChange: function(e)
                 {
+                    this.value = e.target.checked;
                     if (e.target.checked)
                         this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SQUARE;
                     else
@@ -868,6 +869,7 @@ var g_tools = [
                 value: false,
                 onChange: function(e)
                 {
+                    this.value = e.target.checked;
                     if (e.target.checked)
                         this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SOFT;
                     else
@@ -946,6 +948,7 @@ var g_tools = [
                 value: false,
                 onChange: function(e)
                 {
+                    this.value = e.target.checked;
                     if (e.target.checked)
                         this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SQUARE;
                     else
@@ -959,6 +962,7 @@ var g_tools = [
                 value: false,
                 onChange: function(e)
                 {
+                    this.value = e.target.checked;
                     if (e.target.checked)
                         this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SOFT;
                     else
@@ -1006,6 +1010,7 @@ var g_tools = [
                 value: true,
                 onChange: function(e)
                 {
+                    this.value = e.target.checked;
                     if (e.target.checked)
                         this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SQUARE;
                     else
@@ -1019,6 +1024,7 @@ var g_tools = [
                 value: false,
                 onChange: function(e)
                 {
+                    this.value = e.target.checked;
                     if (e.target.checked)
                         this.parent.propFlags = this.parent.propFlags | BRUSHPROPS.SOFT;
                     else
