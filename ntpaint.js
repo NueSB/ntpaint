@@ -609,6 +609,9 @@ function setTool(i)
     }
     
     g_BrushSize = g_tools[ g_currentTool ].size;
+    
+    if (g_currentTool == TOOL.BRUSH) 
+        g_BrushSize = 0;
 
     mainDraw( { x: lastCoords.x - g_BrushSize / 2, 
         y: lastCoords.y - g_BrushSize / 2,
@@ -3244,9 +3247,10 @@ uiContainer.addEventListener( "wheel", e=> {
     }
 
     let scale = g_viewScale;
-
-    g_zoomLevel = clamp( g_zoomLevel - Math.sign(e.deltaY), 1, 35 );
+    
+    g_zoomLevel = clamp( g_zoomLevel - Math.sign(e.deltaY) * 0.5, 1, 35 );
     g_viewScale = g_zoomLevel == 25 ? 1 : Math.pow(1.2, g_zoomLevel) / 100;
+
     displayToast(`zoom: ${Math.floor(g_viewScale*100)}%`);
     if (scale != g_viewScale)
         lastCoords = lastCoords_raw.sub( g_viewTransform ).scale( 1/g_viewScale );
