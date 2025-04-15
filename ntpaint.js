@@ -1453,9 +1453,10 @@ let debug = false;
 
     uiLayerAdd.addEventListener("click", e=>{ createLayer(undefined, undefined, true) } );    
     uiLayerRemove.addEventListener("click", e=>{ removeLayer(g_currentLayer, true) } );
-
+    
     let sortable = new Sortable(uiLayerList, 
         {
+            supportPointer: false,
             animation: 150,
             onUpdate: function(e)
             {
