@@ -1696,7 +1696,7 @@ function updateBrushPreview()
 
     Graphics.drawInstanceRects();
     Graphics.globalAlpha = 1;
-    
+    gl.disable(gl.BLEND);
     let data = Graphics.getImageData(0,0,512,512).data;
 
     let imgData = uiBrushPreviewCtx.createImageData(512, 512);
