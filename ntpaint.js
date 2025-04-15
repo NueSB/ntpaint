@@ -358,6 +358,9 @@ function drawBackbuffer( region )
         }        
     }
 
+    Graphics.setRenderTarget("backbuffer_pre");
+    Graphics.drawImage("backbuffer", 0, 0);
+
     // post-processing
     Graphics.setRenderTarget("temp0");
     {
@@ -586,10 +589,25 @@ function setTool(i)
 
             switch( prop.type )
             {
+                case "dropdown":
+                    // create dropdown list and disable input element
+                    propElement = document.createElement("select");
+                    propElement.addEventListener("change", e=> {
+                        prop.onChange(e);
+                        window.requestAnimationFrame(updateBrushPreview);
+                    });
+                    for (let x = 0; x < prop.values.length; x++)
+                    {
+                        let item = prop.values[x];
+                        propElement.innerHTML += `<option value=${item.value}>${item.displayName}</option>`;
+                    }
+                    propElement.value = tool[ prop.name ];
+                    break;
+
                 case "range":
-                    value = tool[tool.properties[j].name]
-                    * (tool.properties[j].stop - tool.properties[j].start) 
-                    + tool.properties[j].start;
+                    value = tool[prop.name]
+                    * (prop.stop - prop.start) 
+                    + prop.start;
                     inputElement.value = value;
                     break;
 
@@ -886,6 +904,7 @@ var g_tools = [
         name: "bkt",
         opacity: 1,
         tolerance: 10,
+        sampleType: "layer",
         properties: [
             {
                 name: "opacity",
@@ -896,6 +915,22 @@ var g_tools = [
                 onChange: function(e)
                 {
                     this.parent.opacity = e.target.value / this.stop;
+                }
+            },
+
+            {
+                name: "sampleType",
+                displayName: "sample type",
+                type: "dropdown",
+                values: [
+                    {displayName: "sample layer", value: "layer"},
+                    {displayName: "sample whole image", value: "image"},
+                ],
+
+                onChange: function(e)
+                {
+                    console.log(e.target.value);
+                    this.parent.sampleType = e.target.value;
                 }
             },
             
@@ -1443,6 +1478,7 @@ let debug = false;
     rescaleViewCanvas();
     
     Graphics.createRenderTarget("backbuffer", canvasWidth, canvasHeight);
+    Graphics.createRenderTarget("backbuffer_pre", canvasWidth, canvasHeight);
     Graphics.createRenderTarget("brushPreview", 512, 512);
     
 
@@ -1456,7 +1492,7 @@ let debug = false;
     
     let sortable = new Sortable(uiLayerList, 
         {
-            supportPointer: false,
+            supportPointer: false, // this may need to be an option
             animation: 150,
             onUpdate: function(e)
             {
@@ -2203,7 +2239,19 @@ function FFAnimation(timestamp)
     else
     {   
         Graphics.setRenderTarget( g_currentLayer.id );
-        Graphics.putImageData(bucketAnimation.imageData, 0, 0);
+        Graphics.setShader("floodFill");
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, Graphics.textures[bucketAnimation.textureID].texture);
+        gl.uniform1f(Graphics.currentShader.vars['factor'].location, 1);
+
+        let texmatrix = m3.translation(0, 0);
+        texmatrix = m3.multiply(texmatrix, m3.scale(1, -1));
+        gl.uniformMatrix3fv(Graphics.currentShader.vars['uTexMatrix'].location, false, texmatrix);
+        gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+    
+        Graphics.drawRect(0, 0, canvasWidth, canvasHeight, 0);
+        //Graphics.putImageData(bucketAnimation.imageData, 0, 0);
         pushUndoHistory();
         setCharacterIcon("nit1");
 
@@ -2225,7 +2273,19 @@ function executeFloodFill(x, y, color)
     if (bucketAnimation.active)
     {
         Graphics.setRenderTarget( g_currentLayer.id );
-        Graphics.putImageData(bucketAnimation.imageData, 0, 0);
+        //Graphics.putImageData(bucketAnimation.imageData, 0, 0);
+        Graphics.setShader("floodFill");
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, Graphics.textures[bucketAnimation.textureID].texture);
+        gl.uniform1f(Graphics.currentShader.vars['factor'].location, 1);
+
+        let texmatrix = m3.translation(0, 0);
+        texmatrix = m3.multiply(texmatrix, m3.scale(1, -1));
+        gl.uniformMatrix3fv(Graphics.currentShader.vars['uTexMatrix'].location, false, texmatrix);
+        gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+    
+        Graphics.drawRect(0, 0, canvasWidth, canvasHeight, 0);
         pushUndoHistory();
         setCharacterIcon("nit1");
 
@@ -2239,15 +2299,25 @@ function executeFloodFill(x, y, color)
     }
     // again; flip coords, flipped texture
     
-    Graphics.setRenderTarget( g_currentLayer.id );
+    let width = canvasWidth; 
+    let height = canvasHeight;
+    let layer = "backbuffer_pre";
+    if (g_tools[TOOL.BUCKET].sampleType == "layer")
+    {
+        console.log("layer type fill");
+        width = g_currentLayer.width; 
+        height = g_currentLayer.height;
+        layer = g_currentLayer.id;
+    }
+
+    Graphics.setRenderTarget( layer );
     x = Math.floor(x), y = Math.floor(g_currentLayer.height-y);
     bucketAnimation.active = true;
 
-    // off by one error avoidance. it's an off by one error. remember this
-    let filledPixels = new Uint8Array(canvasWidth*canvasHeight);
+    let filledPixels = new Uint8Array(width*height);
     //filledPixels.fill(0);
 
-    bucketAnimation.imageData = Graphics.getImageData(0, 0, g_currentLayer.width, g_currentLayer.height);
+    bucketAnimation.imageData = Graphics.getImageData(0, 0, width, height);
     bucketAnimation.iterations = 0;
     
     let pixel = (y * g_currentLayer.width + x) * 4;
@@ -3136,7 +3206,7 @@ function setCanvasSize(size, offset, pushUndo = false)
         g_layers[i].height = canvasHeight;
     }
 
-    let systemLayers = ["temp0", "temp1", "temp-line", "temp-layer", "backbuffer"];
+    let systemLayers = ["temp0", "temp1", "temp-line", "temp-layer", "backbuffer", "backbuffer_pre"];
     for (let i = 0; i < systemLayers.length; i++)
     {
         let layerName = systemLayers[i];
