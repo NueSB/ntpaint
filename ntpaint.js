@@ -106,6 +106,19 @@ class Layer {
         
     }
 
+    setVisibility(s)
+    {
+        this.visible = s;
+
+        this.uiElement.querySelector(".visibility-button").innerHTML = this.visible ? "o" : "-";
+        if (this.visible)
+        {
+            this.uiElement.classList.remove("inactive")
+        } else this.uiElement.classList.add("inactive");
+        
+        drawBackbuffer();
+    }
+
     toggleVisibility()
     {
         this.visible = !this.visible;
@@ -673,6 +686,12 @@ function createLayer(index, name, pushUndo=false)
     layerUI.querySelector("span").innerHTML = layer.name;
     layerUI.querySelector(".visibility-button").onclick = (e) => {
         layer.toggleVisibility();
+
+        pushUndoHistory({
+            type: layer.visible ? "LAYER_SHOW" : "LAYER_HIDE",
+            layerIndex: g_layers.indexOf(layer)
+        });
+
         e.target.innerHTML = layer.visible ? "o" : "-";
         if (layer.visible)
         {
@@ -1748,7 +1767,7 @@ function dbg_logUndoHistory()
     for( var i = g_undoHistory.length-1; i >= 0; i--)
     {
         let undoValue = g_undoHistory[i];
-        console.log(`${i == g_undoHistory.length-1-g_undoPosition ? "->\t":"\t"} ${i}: ${ undoValue.type }; ID = ${undoValue.id}`);
+        console.log(`${i == g_undoHistory.length-1-g_undoPosition ? "->\t":"\t"} ${i}: ${ undoValue.type }; ${undoValue.id ? "ID = "+undoValue.id : undoValue.layerIndex ? "LAYER_INDEX = "+undoValue.layerIndex : ""}`);
     }
     console.log("----------------------");
 }
@@ -1813,6 +1832,14 @@ function undo()
                 }
                 else
                     Graphics.putImageData(undoValue.data, 0, 0);
+            break;
+
+        case "LAYER_HIDE":
+            g_layers[undoValue.layerIndex].setVisibility(true);
+            break;
+        
+        case "LAYER_SHOW":
+            g_layers[undoValue.layerIndex].setVisibility(false);
             break;
         
         case "LAYER_ADD":
@@ -1941,6 +1968,14 @@ function redo()
             undoValue.layer = layer;
             undoValue.id = layer.id;
             undoValue.layerIndex = g_layers.indexOf( layer );
+            break;
+
+        case "LAYER_HIDE":
+            g_layers[undoValue.layerIndex].setVisibility(false);
+            break;
+        
+        case "LAYER_SHOW":
+            g_layers[undoValue.layerIndex].setVisibility(true);
             break;
 
         case "REORDER":
