@@ -373,7 +373,7 @@ function drawBackbuffer( region )
 
     Graphics.setRenderTarget("backbuffer_pre");
     Graphics.drawImage("backbuffer", 0, 0);
-
+    
     // post-processing
     Graphics.setRenderTarget("temp0");
     {
@@ -381,7 +381,7 @@ function drawBackbuffer( region )
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, Graphics.textures["backbuffer"].texture);
         gl.uniform1i(Graphics.currentShader.vars['uTexture'].location, 0);
-        gl.uniform1f(Graphics.currentShader.vars["snapAmt"].location, 32.0 );
+        gl.uniform1f(Graphics.currentShader.vars["snapAmt"].location, 64.0 );
 
     
         let texmatrix = m3.translation(0, 0);
@@ -394,6 +394,7 @@ function drawBackbuffer( region )
         Graphics.setRenderTarget("backbuffer");
             Graphics.drawImage("temp0", 0, 0);
     }
+
     Graphics.restore();
     Graphics.setRenderTarget(null);
 }
@@ -815,6 +816,8 @@ function isCanvasBlank(renderTarget)
 }
 
 
+var lastPt = null;
+var lastLastPt = null;
 var g_viewTransform = Vec2(512,512);
 var g_isResizingCanvas = false;
 var g_canvasResizeType = "move";
@@ -1314,7 +1317,7 @@ Object.keys(g_actionKeys).forEach(action => {
 
 let debug = false;
 
-{
+function setup() {
     let debugcanvas = document.createElement("canvas");
     debugcanvas.height = canvasHeight;
     debugcanvas.width = canvasWidth;
@@ -1551,8 +1554,8 @@ let debug = false;
 
     setCanvasSize(Vec2(1024,1024));
     g_zoomLevel = 22;
-    g_viewScale = 0.5;
-    g_viewTransform = Vec2(512,512).add(Vec2(0,-256));
+    g_viewScale = 0.7;
+    g_viewTransform = Vec2(512,512).add(Vec2(-356,-256));
 
     for(let i = 0; i < Object.keys(g_textures).length; i++)
     {
@@ -1562,34 +1565,126 @@ let debug = false;
         Graphics.loadTexture(textureObj.url, id);
     }
 
+
     if (debug)
     {
         /* sample "line draw" */
         Graphics.setRenderTarget("temp-line");
-        drawLine( Vec2(0,0,), Vec2(1024, 1024), 9, 1 );
+
+        let cScale = 280;
+        let offset = 360;
+        let circleMesh = new Float32Array(16*2);
+        
+        drawLine(
+            Vec2(0,0).scale(cScale).add(Vec2(offset,offset/2)),
+            Vec2(1,0).scale(cScale).add(Vec2(offset,offset/2)),
+            3,
+            1
+        );
+
+        drawLine(
+            Vec2(1,0).scale(cScale).add(Vec2(offset,offset/2)),
+            Vec2(1,1).scale(cScale).add(Vec2(offset,offset/2)),
+            3,
+            1
+        );
+
+        drawLine(
+            Vec2(1,1).scale(cScale).add(Vec2(offset,offset/2)),
+            Vec2(0,1).scale(cScale).add(Vec2(offset,offset/2)),
+            3,
+            1
+        );
+
+        drawLine(
+            Vec2(0,1).scale(cScale).add(Vec2(offset,offset/2)),
+            Vec2(0,0).scale(cScale).add(Vec2(offset,offset/2)),
+            3,
+            1
+        );
+
+
         Graphics.setRenderTarget("temp0");
         {
             Graphics.clearRect(0,0,canvasWidth, canvasHeight);
             drawLayer( "temp-line", g_currentLayer.id, (g_tools[g_currentTool].opacity || 1));
         }
 
-        Graphics.setRenderTarget( g_currentLayer.id );
-        {
-            Graphics.drawImage( "temp0", 0, 0 );
-        }
-
-        Graphics.setRenderTarget( "temp-line" );
-        {
-            Graphics.clearRect(0,0,canvasWidth, canvasHeight);
-        }
-        pushUndoHistory();
-
-        setCanvasSize(Vec2(canvasWidth, canvasHeight*1.5), Vec2(0,0), true);
-
-        drawBackbuffer();
-    }
+        dbg_JFA();
+    };
 }
 
+setup();
+
+
+function dbg_JFA()
+{
+    Graphics.setRenderTarget( "temp1" );
+    {
+        Graphics.setShader("JFA_INIT");
+        {
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets[g_currentLayer.id].texture.texture);
+
+            let texmatrix = m3.translation(0, 0);
+            texmatrix = m3.multiply(texmatrix, m3.scale(1, 1));
+            gl.uniformMatrix3fv(Graphics.currentShader.vars['uTexMatrix'].location, false, texmatrix);
+            gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+        
+            Graphics.drawRect(0, 0, canvasWidth, canvasHeight, 0);
+        }
+
+        Graphics.setRenderTarget("temp0")
+        {
+            Graphics.drawImage("temp1", 0, 0, );
+        }
+        
+        //let i = 4;
+        for(let i = 9; i >= 1; i--)
+        {
+            Graphics.setRenderTarget("temp1");
+            Graphics.setShader("JFA_PASS");
+            {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets["temp0"].texture.texture);
+                gl.uniform1i(Graphics.currentShader.vars["spacing"].location, Math.pow(2,i));
+                let texmatrix = m3.translation(0, 0);
+                texmatrix = m3.multiply(texmatrix, m3.scale(1, -1));
+                gl.uniformMatrix3fv(Graphics.currentShader.vars['uTexMatrix'].location, false, texmatrix);
+                gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+            
+                Graphics.drawRect(0, 0, canvasWidth, canvasHeight, 0);
+            }
+
+        
+            Graphics.setShader("texture");
+            gl.uniform1i( Graphics.currentShader.vars["overwriteAlpha"].location, 1 );
+            // recopy image to written texture
+            Graphics.setRenderTarget("temp0")
+            {
+                Graphics.drawImage("temp1", 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight, 1, false);
+            }
+        }
+
+        Graphics.setRenderTarget("temp1");
+        Graphics.setShader("JFA_OUTLINE");
+        gl.bindTexture(gl.TEXTURE_2D, Graphics.renderTargets["temp0"].texture.texture);
+        let texmatrix = m3.translation(0, 0);
+        texmatrix = m3.multiply(texmatrix, m3.scale(1, 1));
+        gl.uniformMatrix3fv(Graphics.currentShader.vars['uTexMatrix'].location, false, texmatrix);
+        gl.bindBuffer(gl.ARRAY_BUFFER, Graphics.posBuffer);
+    
+        Graphics.drawRect(0, 0, canvasWidth, canvasHeight, 0);
+        
+        Graphics.setShader("texture");
+        gl.uniform1i( Graphics.currentShader.vars["overwriteAlpha"].location, 0 );
+        
+        Graphics.setRenderTarget(g_currentLayer.id, 0, 0);
+        Graphics.drawImage("temp1", 0, 0, canvasWidth, canvasHeight, 0, 0, canvasWidth, canvasHeight, 1, true);
+    }
+
+    drawBackbuffer();
+}
 
 function displayToast(message)
 {
@@ -2045,9 +2140,6 @@ function pushUndoHistory(event)
     if (debug) 
         dbg_logUndoHistory();
 }
-
-let lastPt = null;
-let lastLastPt = null;
 
 function drawLine(start,end,brushSize,spacing)
 {
