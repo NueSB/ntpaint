@@ -3544,11 +3544,29 @@ colorPicker.canvas.addEventListener( "pointerdown", e => {
     let x = (e.clientX - colorPicker.element.offsetLeft) / colorPicker.size;
     let y = (e.clientY - colorPicker.element.offsetTop) / colorPicker.size;
 
+    switch(colorPicker.displayType)
+    {
+        case "SQUARE":
+            if (y > 0.9)
+                colorPicker.selectedRegion = "HUE";
+            else 
+                colorPicker.selectedRegion = "MAIN";
+            break;
+        
+        case "CIRCLE":
+            x -= 0.5;
+            y -= 0.5;
+            if (Math.abs(x) < colorPicker.radSize && Math.abs(y) < colorPicker.radSize)
+            {
+                colorPicker.selectedRegion = "MAIN";
+            } 
+            else
+                colorPicker.selectedRegion = "HUE";
 
-    if (y > 0.9)
-        colorPicker.selectedRegion = "HUE";
-    else 
-        colorPicker.selectedRegion = "MAIN";
+            x += 0.5;
+            y += 0.5;
+            break;
+    }
     
     let rgb = colorPicker.getColor(
         clamp01(x), 
@@ -3566,14 +3584,24 @@ window.addEventListener( "pointermove", e => {
     let x = (e.clientX - colorPicker.element.offsetLeft) / colorPicker.size;
     let y = (e.clientY - colorPicker.element.offsetTop) / colorPicker.size;
 
-    if (colorPicker.selectedRegion == "MAIN")
-        y = Math.min(0.9, y);
-    else if (colorPicker.selectedRegion == "HUE")
-        y = Math.max(y, 0.91);
+    switch(colorPicker.displayType)
+    {
+        case "SQUARE":
+            if (colorPicker.selectedRegion == "MAIN")
+                y = Math.min(0.9, y);
+            else if (colorPicker.selectedRegion == "HUE")
+                y = Math.max(y, 0.91);
+            break;
+        
+        case "CIRCLE":
+            break;
+    }
+
+    x = clamp01(x);
+    y = clamp01(y);
 
     let rgb = colorPicker.getColor(
-        clamp01(x), 
-        clamp01(y)
+        x,y
     );
     setColor(0, new Color(rgb[0], rgb[1], rgb[2]));
 } )

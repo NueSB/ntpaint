@@ -126,10 +126,11 @@ body {
 #colorpicker canvas { 
     pointer-events: auto;
     touch-action: none;
-    filter:drop-shadow( 6px 6px rgb(0,0,0 / 20%));
-    /* box-shadow: 6px 6px rgb(0 0 0 / 20%);*/
-    grid-area: 1 / 1 / 2 / 4;
+    /*box-shadow: 6px 6px rgb(0 0 0 / 20%);
     border: 2px solid black;
+    background-color: #383838;*/
+    grid-area: 1 / 1 / 2 / 4;
+    padding: 5px;
 }
 
 .colorcontainer {
