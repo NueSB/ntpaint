@@ -126,7 +126,8 @@ body {
 #colorpicker canvas { 
     pointer-events: auto;
     touch-action: none;
-    box-shadow: 6px 6px rgb(0 0 0 / 20%);
+    filter:drop-shadow( 6px 6px rgb(0,0,0 / 20%));
+    /* box-shadow: 6px 6px rgb(0 0 0 / 20%);*/
     grid-area: 1 / 1 / 2 / 4;
     border: 2px solid black;
 }
