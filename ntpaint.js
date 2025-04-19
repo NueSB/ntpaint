@@ -841,7 +841,7 @@ var g_textures = {
     */
 };
 var g_prefs = {
-    colorSpectrum: "HSL",
+    colorSpectrum: "HSV",
 };
 var bucketAnimation = {
     srcColor: 0,
@@ -1320,12 +1320,8 @@ Object.keys(g_actionKeys).forEach(action => {
 let debug = false;
 
 function setup() {
-    debug = localStorage.getItem("debug");
-    if (debug == undefined || debug == null)
-    {
-        debug = false;
-        localStorage.setItem("debug", false);
-    }
+    debug = localStorage.getItem("debug") === "true";
+    localStorage.setItem("debug", debug);
 
     let debugcanvas = document.createElement("canvas");
     debugcanvas.height = canvasHeight;
