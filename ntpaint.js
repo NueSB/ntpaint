@@ -840,6 +840,9 @@ var g_textures = {
     }
     */
 };
+var g_prefs = {
+    colorSpectrum: "HSL",
+};
 var bucketAnimation = {
     srcColor: 0,
     replacementColor: 0,
@@ -1317,6 +1320,13 @@ Object.keys(g_actionKeys).forEach(action => {
 let debug = false;
 
 function setup() {
+    debug = localStorage.getItem("debug");
+    if (debug == undefined || debug == null)
+    {
+        debug = false;
+        localStorage.setItem("debug", false);
+    }
+
     let debugcanvas = document.createElement("canvas");
     debugcanvas.height = canvasHeight;
     debugcanvas.width = canvasWidth;
@@ -1431,8 +1441,8 @@ function setup() {
     {
         if (Date.now() - g_menuCooldown.cooldown <= g_menuCooldown.lastTimestamp)
             return;
-
-        console.log("pointer out brushtoolbar");
+        
+        localStorage.setItem("prefs", JSON.stringify(g_prefs));
         if (g_BrushTrayVisible)
         {
             if (debug) console.log("\tbrush tray is visible, starting interval to swap icons");
@@ -1457,14 +1467,23 @@ function setup() {
         setCharacterIcon("nit1");
     });
 
+    let prefs = localStorage.getItem("prefs");
+    if (!prefs)
+    {
+        localStorage.setItem("prefs", JSON.stringify(g_prefs))
+        prefs = JSON.stringify(g_prefs);
+    }
+    g_prefs = JSON.parse(prefs);
+
     let menuItems = document.querySelector("#menu-list-items");
     {
-        let options = [
-            {
+        let options = {
+            "colorSpectrum": {
                 name: "color spectrum type",
                 type: "dropdown",
                 options: {
                     "HSV": {
+                        value: "HSV",
                         change: function()
                         {
                             colorPicker.hueType = "HSV";
@@ -1475,6 +1494,7 @@ function setup() {
                         }
                     },
                     "HSL": {
+                        value: "HSL",
                         change: function()
                         {
                             colorPicker.hueType = "HSL";
@@ -1486,13 +1506,15 @@ function setup() {
                     }
                 }
             },
-        ]
+        }
 
-        for(let i = 0; i < options.length; i++)
+        let options_keys = Object.keys(options);
+        for(let i = 0; i < options_keys.length; i++)
         {
+            let entryName = options_keys[i];
             let propElement = document.querySelector(".system-property").cloneNode(true);
             propElement.style = "";
-            let entry = options[i];
+            let entry = options[entryName];
             propElement.querySelector("#propname").innerHTML = entry.name;
 
             switch(entry.type)
@@ -1500,26 +1522,36 @@ function setup() {
                 case "dropdown":
                     let select = document.createElement("select");
                     let keys = Object.keys(entry.options);
+                    let storedValue = null;
                     for (let j = 0; j < keys.length; j++)
                     {
                         let option = entry.options[keys[j]];
-                        console.log(option)
                         let element = document.createElement("option");
                         element.innerHTML = keys[j];
+                        element.value = option.value;
+
+                        if (entryName in g_prefs &&
+                            g_prefs[entryName] == keys[j]
+                        )
+                        {
+                            storedValue = option.value;
+                            console.log(`retrieved stored value`, storedValue)
+                        }
+
                         select.appendChild(element);
                     }
                     select.addEventListener("change", e=> {
+                        g_prefs[entryName] = e.target.value;
                         entry.options[e.target.value].change();
-                        /*
-                        for(let i = 0; i < entry.options.length; i++)
-                        {
-                            if (e.target.value == options[i].name)
-                            {
-                                options[i].change();
-                                return;
-                            }
-                        }*/
                     });
+
+                    if (storedValue)
+                    {
+                        console.log("applying stored value ^")
+                        select.value = storedValue;
+                        select.dispatchEvent(new Event("change"));
+                    }
+
                     propElement.appendChild(select);
                     break;
                 
@@ -1530,7 +1562,6 @@ function setup() {
 
             menuItems.appendChild(propElement);
         }
-        
     }
 
     function addHoverScale(selector, uiElement)
