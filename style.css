@@ -223,6 +223,15 @@ body {
     transition: all 0.2s ease-in-out;
 }
 
+.system-property {
+    background-color: #383838;
+    color: #AAAAAA;
+    border: 1px solid black;
+    padding: 3px;
+    margin: 4px;
+    transition: all 0.2s ease-in-out;
+}
+
 .clickable:hover {
     cursor: pointer;
 }

@@ -951,7 +951,6 @@ var g_tools = [
 
                 onChange: function(e)
                 {
-                    console.log(e.target.value);
                     this.parent.sampleType = e.target.value;
                 }
             },
@@ -1457,6 +1456,82 @@ function setup() {
         uiBrushToolbar.style.left = "70%";
         setCharacterIcon("nit1");
     });
+
+    let menuItems = document.querySelector("#menu-list-items");
+    {
+        let options = [
+            {
+                name: "color spectrum type",
+                type: "dropdown",
+                options: {
+                    "HSV": {
+                        change: function()
+                        {
+                            colorPicker.hueType = "HSV";
+                            requestAnimationFrame(
+                                t=>{colorPicker.redrawSpectrum();
+                                    colorPicker.redraw()
+                                });
+                        }
+                    },
+                    "HSL": {
+                        change: function()
+                        {
+                            colorPicker.hueType = "HSL";
+                            requestAnimationFrame(
+                                t=>{colorPicker.redrawSpectrum();
+                                    colorPicker.redraw()
+                                });
+                        }
+                    }
+                }
+            },
+        ]
+
+        for(let i = 0; i < options.length; i++)
+        {
+            let propElement = document.querySelector(".system-property").cloneNode(true);
+            propElement.style = "";
+            let entry = options[i];
+            propElement.querySelector("#propname").innerHTML = entry.name;
+
+            switch(entry.type)
+            {
+                case "dropdown":
+                    let select = document.createElement("select");
+                    let keys = Object.keys(entry.options);
+                    for (let j = 0; j < keys.length; j++)
+                    {
+                        let option = entry.options[keys[j]];
+                        console.log(option)
+                        let element = document.createElement("option");
+                        element.innerHTML = keys[j];
+                        select.appendChild(element);
+                    }
+                    select.addEventListener("change", e=> {
+                        entry.options[e.target.value].change();
+                        /*
+                        for(let i = 0; i < entry.options.length; i++)
+                        {
+                            if (e.target.value == options[i].name)
+                            {
+                                options[i].change();
+                                return;
+                            }
+                        }*/
+                    });
+                    propElement.appendChild(select);
+                    break;
+                
+                default:
+                    console.error(`unknown system property type ${entry.type}, skipping`);
+                    break;
+            }
+
+            menuItems.appendChild(propElement);
+        }
+        
+    }
 
     function addHoverScale(selector, uiElement)
     {
