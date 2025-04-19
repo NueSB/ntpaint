@@ -3557,7 +3557,7 @@ colorPicker.canvas.addEventListener( "pointerdown", e => {
         case "CIRCLE":
             x -= 0.5;
             y -= 0.5;
-            if (Math.abs(x) < colorPicker.radSize && Math.abs(y) < colorPicker.radSize)
+            if (Math.abs(x) < colorPicker.radSize*1.2 && Math.abs(y) < colorPicker.radSize*1.2)
             {
                 colorPicker.selectedRegion = "MAIN";
             } 
