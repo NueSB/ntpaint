@@ -3552,7 +3552,8 @@ colorPicker.canvas.addEventListener( "pointerdown", e => {
             else 
                 colorPicker.selectedRegion = "MAIN";
             break;
-        
+
+        case "SQUIRCLE":
         case "CIRCLE":
             x -= 0.5;
             y -= 0.5;
@@ -3593,6 +3594,7 @@ window.addEventListener( "pointermove", e => {
                 y = Math.max(y, 0.91);
             break;
         
+        case "SQUIRCLE":
         case "CIRCLE":
             break;
     }
