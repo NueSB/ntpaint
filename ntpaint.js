@@ -842,6 +842,7 @@ var g_textures = {
 };
 var g_prefs = {
     colorSpectrum: "HSV",
+    colorWheel: "squircle",
 };
 var bucketAnimation = {
     srcColor: 0,
@@ -1475,7 +1476,7 @@ function setup() {
     {
         let options = {
             "colorSpectrum": {
-                name: "color spectrum type",
+                name: "color spectrum",
                 type: "dropdown",
                 options: {
                     "HSV": {
@@ -1494,6 +1495,45 @@ function setup() {
                         change: function()
                         {
                             colorPicker.hueType = "HSL";
+                            requestAnimationFrame(
+                                t=>{colorPicker.redrawSpectrum();
+                                    colorPicker.redraw()
+                                });
+                        }
+                    }
+                }
+            },
+            "colorWheel": {
+                name: "color wheel",
+                type: "dropdown",
+                options: {
+                    "square": {
+                        value: "square",
+                        change: function()
+                        {
+                            colorPicker.displayType = "SQUARE";
+                            requestAnimationFrame(
+                                t=>{colorPicker.redrawSpectrum();
+                                    colorPicker.redraw()
+                                });
+                        }
+                    },
+                    "circle": {
+                        value: "circle",
+                        change: function()
+                        {
+                            colorPicker.displayType = "CIRCLE";
+                            requestAnimationFrame(
+                                t=>{colorPicker.redrawSpectrum();
+                                    colorPicker.redraw()
+                                });
+                        }
+                    },
+                    "squircle": {
+                        value: "squircle",
+                        change: function()
+                        {
+                            colorPicker.displayType = "SQUIRCLE";
                             requestAnimationFrame(
                                 t=>{colorPicker.redrawSpectrum();
                                     colorPicker.redraw()
